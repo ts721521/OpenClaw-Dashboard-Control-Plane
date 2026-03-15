@@ -6,6 +6,13 @@ It does **not** vendor the OpenClaw runtime. Real data stays external and is rea
 - `OPENCLAW_BASE_DIR=/Users/tianshuai/.openclaw`
 - `OPENCLAW_WORKSPACE=/Users/tianshuai/.openclaw/workspace`
 
+## Dependencies
+
+```bash
+cd /Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane
+python3 -m pip install -r requirements.txt
+```
+
 ## Quick Start
 
 ```bash
