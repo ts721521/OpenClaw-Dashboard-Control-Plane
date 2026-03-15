@@ -13,13 +13,15 @@ Its job is to tell the next AI:
 
 ### New AI joining the repo
 1. [2026-03-15-openclaw-control-plane-architecture.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-15-openclaw-control-plane-architecture.md)
-2. [2026-03-15-control-plane-handover.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/handovers/2026-03-15-control-plane-handover.md)
-3. [2026-03-15-migration-boundaries.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-15-migration-boundaries.md)
-4. [2026-03-15-team-workflow-designer-design.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-15-team-workflow-designer-design.md)
-5. [2026-03-14-openclaw-control-plane-prd.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-14-openclaw-control-plane-prd.md)
-6. [2026-03-14-braintrust-review-system-prd.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-14-braintrust-review-system-prd.md)
-7. [2026-03-14-constitution-runtime-mapping-spec.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-14-constitution-runtime-mapping-spec.md)
-8. [2026-03-14-minimal-kernel-implementation-plan.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-14-minimal-kernel-implementation-plan.md)
+2. [2026-03-16-architecture-upgrade-design.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-16-architecture-upgrade-design.md)
+3. [2026-03-16-architecture-upgrade-implementation-plan.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-16-architecture-upgrade-implementation-plan.md)
+4. [2026-03-15-control-plane-handover.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/handovers/2026-03-15-control-plane-handover.md)
+5. [2026-03-15-migration-boundaries.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-15-migration-boundaries.md)
+6. [2026-03-15-team-workflow-designer-design.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-15-team-workflow-designer-design.md)
+7. [2026-03-14-openclaw-control-plane-prd.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-14-openclaw-control-plane-prd.md)
+8. [2026-03-14-braintrust-review-system-prd.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-14-braintrust-review-system-prd.md)
+9. [2026-03-14-constitution-runtime-mapping-spec.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-14-constitution-runtime-mapping-spec.md)
+10. [2026-03-14-minimal-kernel-implementation-plan.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-14-minimal-kernel-implementation-plan.md)
 
 ### If you are doing frontend work
 1. [2026-03-15-openclaw-control-plane-architecture.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-15-openclaw-control-plane-architecture.md)
@@ -44,6 +46,9 @@ Its job is to tell the next AI:
 
 - System architecture and code mapping:
   - [2026-03-15-openclaw-control-plane-architecture.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-15-openclaw-control-plane-architecture.md)
+- Architecture upgrade design and plan:
+  - [2026-03-16-architecture-upgrade-design.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-16-architecture-upgrade-design.md)
+  - [2026-03-16-architecture-upgrade-implementation-plan.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-16-architecture-upgrade-implementation-plan.md)
 - Current implementation truth and residual issues:
   - [2026-03-15-control-plane-handover.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/handovers/2026-03-15-control-plane-handover.md)
 - Workflow designer graph/config mapping:

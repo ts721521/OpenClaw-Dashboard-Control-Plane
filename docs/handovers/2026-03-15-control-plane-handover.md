@@ -25,12 +25,14 @@ The system is no longer being treated as a loose dashboard. It is being turned i
 These are the documents that define the current intended model.
 
 1. `docs/plans/2026-03-15-openclaw-control-plane-architecture.md`
-2. `docs/plans/2026-03-14-openclaw-control-plane-prd.md`
-3. `docs/plans/2026-03-14-braintrust-review-system-prd.md`
-4. `docs/plans/2026-03-14-constitution-runtime-mapping-spec.md`
-5. `docs/plans/2026-03-14-minimal-kernel-implementation-plan.md`
-6. `docs/plans/2026-03-15-team-workflow-designer-design.md`
-7. `docs/plans/2026-03-15-migration-boundaries.md`
+2. `docs/plans/2026-03-16-architecture-upgrade-design.md`
+3. `docs/plans/2026-03-16-architecture-upgrade-implementation-plan.md`
+4. `docs/plans/2026-03-14-openclaw-control-plane-prd.md`
+5. `docs/plans/2026-03-14-braintrust-review-system-prd.md`
+6. `docs/plans/2026-03-14-constitution-runtime-mapping-spec.md`
+7. `docs/plans/2026-03-14-minimal-kernel-implementation-plan.md`
+8. `docs/plans/2026-03-15-team-workflow-designer-design.md`
+9. `docs/plans/2026-03-15-migration-boundaries.md`
 
 If a UI change conflicts with these documents, update the docs or do not ship the change.
 
@@ -144,6 +146,12 @@ The following flows were executed against the live service on `http://localhost:
 - task-page route parsing and gate helpers moved into `static/task_dashboard_utils.js`.
 - workflow-designer graph/model conversion moved into `static/workflow_designer_model.js`.
 - smoke cleanup now performs session close/delete plus targeted process cleanup for session/workdir-owned Playwright/Chrome residues.
+
+## 2026-03-16 architecture-upgrade update
+
+- FastAPI entrypoint now exists in `app/main.py` and preserves core read-only APIs.
+- Static compatibility routing is served by FastAPI (`/task_dashboard.html`, `/system_dashboard.html`, `/static/*`).
+- `start.sh` now runs Uvicorn against `app.main:app` for local dev.
 
 ## Live review artifacts currently in the system
 These are test/smoke records and may still exist:

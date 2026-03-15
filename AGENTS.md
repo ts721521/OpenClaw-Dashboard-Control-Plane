@@ -33,3 +33,15 @@ Do not invent parallel object models without updating the design docs in `docs/p
 - `static/task_dashboard_utils.js`
 - `static/workflow_designer_model.js`
 - `scripts/control_plane_smoke.sh`
+
+## Current Workflows
+
+- Local dev server: `./start.sh 8888`
+- Deploy to runtime copy: `./scripts/deploy_local.sh`
+- Core backend tests: `python3 -m unittest tests/test_dashboard_data_service.py tests/test_runtime_paths.py`
+
+## Architecture Upgrade Docs
+
+Follow these before changing the service stack:
+- `docs/plans/2026-03-16-architecture-upgrade-design.md`
+- `docs/plans/2026-03-16-architecture-upgrade-implementation-plan.md`
