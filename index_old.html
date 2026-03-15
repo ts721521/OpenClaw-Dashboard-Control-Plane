@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenClaw Dashboard - 系统总览</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; color: white; text-align: center; }
+        .container { max-width: 1000px; padding: 40px; }
+        h1 { font-size: 36px; margin-bottom: 20px; }
+        .subtitle { font-size: 18px; margin-bottom: 40px; opacity: 0.9; }
+        .links { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .link-card { display: block; padding: 30px; background: white; color: #667eea; text-decoration: none; border-radius: 15px; font-weight: 600; font-size: 18px; transition: all 0.3s; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .link-card:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0,0,0,0.3); }
+        .link-icon { font-size: 36px; margin-bottom: 10px; display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 OpenClaw Dashboard</h1>
+        <div class="subtitle">统一递归自愈治理系统监控中心</div>
+        
+        <div class="links">
+            <a href="team_dashboard.html" class="link-card">
+                <span class="link-icon">👥</span>
+                团队管理中心
+            </a>
+            <a href="task_dashboard.html" class="link-card">
+                <span class="link-icon">📋</span>
+                任务管理中心
+            </a>
+            <a href="schedule_dashboard.html" class="link-card">
+                <span class="link-icon">📅</span>
+                任务排程管理中心
+            </a>
+            <a href="system_dashboard.html" class="link-card">
+                <span class="link-icon">🏗️</span>
+                系统架构管理中心
+            </a>
+        </div>
+    </div>
+</body>
+</html>

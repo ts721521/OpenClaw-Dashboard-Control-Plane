@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenClaw · 团队管理中心</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f3f5f2;
+      --panel: #ffffff;
+      --ink: #1f2a24;
+      --muted: #5d6c62;
+      --brand: #0f7b57;
+      --brand-2: #145a43;
+      --line: #d8dfd8;
+      --ok: #0d9f58;
+      --warn: #d1821e;
+      --danger: #bf3d35;
+      --shadow: 0 8px 24px rgba(16, 36, 24, 0.08);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Manrope, "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 500px at -10% -10%, #dff0e6 0%, transparent 65%),
+        radial-gradient(1200px 500px at 120% 0%, #f7e8d8 0%, transparent 60%),
+        var(--bg);
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      gap: 14px;
+      padding: 14px;
+      min-height: 100vh;
+    }
+
+    .side {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(170deg, #f8fcf9 0%, #edf4ef 100%);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: sticky;
+      top: 14px;
+      height: calc(100vh - 28px);
+    }
+
+    .brand { border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+    .brand h2 { margin: 0; font-size: 20px; }
+    .brand p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+
+    .menu { display: grid; gap: 8px; }
+    .menu a {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      text-decoration: none;
+      color: var(--ink);
+      background: #fff;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .menu a:hover { border-color: #8ebea4; background: #f1faf4; }
+    .menu a.active {
+      border-color: #7fb497;
+      background: linear-gradient(135deg, #e9f7ef 0%, #f7f6ef 100%);
+      color: var(--brand);
+    }
+
+    .shell {
+      max-width: 1520px;
+      margin: 0 auto;
+      padding: 24px 24px 24px 0;
+      min-width: 0;
+    }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 6px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 8px 12px;
+    }
+
+    .title h1 { margin: 0; font-size: 18px; }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 10px 14px;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 13px;
+    }
+    .btn:hover { border-color: var(--brand); color: var(--brand); }
+    .btn.primary { background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff; border-color: transparent; }
+
+    .top .subnav { margin: 0; border: none; background: transparent; box-shadow: none; padding: 0; flex: 1; justify-content: center; }
+    .top .actions { margin-left: auto; }
+    .subnav {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin: 0 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: var(--shadow);
+      padding: 8px;
+    }
+
+    .subnav a {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f8fbf9;
+      color: #355246;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 8px 12px;
+    }
+
+    .subnav a:hover { border-color: #8fc3a7; }
+    .subnav a.active {
+      border-color: #7fb497;
+      color: var(--brand);
+      background: linear-gradient(130deg, #eaf8ef 0%, #f8f5eb 100%);
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card.headline { padding: 14px 16px; border-left: 5px solid var(--brand); margin-bottom: 14px; }
+
+    .team-card {
+      border-top: 1px solid var(--line);
+      padding: 16px;
+      scroll-margin-top: 18px;
+    }
+
+    .team-card.highlight {
+      background: #eef9f3;
+      outline: 2px solid #b6dfca;
+    }
+
+    .team-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .team-row h3 { margin: 0; font-size: 19px; }
+
+    .tag {
+      display: inline-block;
+      font-size: 11px;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-weight: 700;
+      background: #edf4ef;
+      color: #234739;
+      border: 1px solid #c9dacd;
+    }
+
+    .lead { margin: 8px 0 12px; color: var(--muted); font-size: 13px; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 14px; }
+    .chip {
+      background: #fbf1e5;
+      color: #7b4b15;
+      border: 1px solid #f0d8ba;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+
+    .workflow { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-top: 1px solid var(--line); padding: 10px 8px; text-align: left; font-size: 13px; }
+    th { color: var(--muted); font-size: 12px; font-weight: 700; }
+
+    .mono { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .dot.working { background: var(--ok); }
+    .dot.idle { background: var(--warn); }
+    .dot.stalled { background: var(--danger); }
+
+    .empty { color: var(--muted); font-size: 13px; padding: 8px 2px; }
+
+    @media (max-width: 1100px) {
+      .app { grid-template-columns: 1fr; padding: 10px; }
+      .side { position: static; height: auto; }
+      .shell { padding: 10px 0; }
+      .top { flex-wrap: wrap; align-items: flex-start; }
+      .top .actions { margin-left: 0; }
+    }
+
+    @media (max-width: 680px) {
+      .shell { padding: 12px 0; }
+      th:nth-child(4), td:nth-child(4) { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="side">
+      <div class="brand">
+        <h2>OpenClaw</h2>
+        <p>Dashboard 控制台</p>
+      </div>
+      <nav class="menu">
+        <a class="active" href="team_dashboard.html">团队管理中心</a>
+        <a href="task_dashboard.html">任务管理中心</a>
+        <a href="system_dashboard.html">系统架构管理中心</a>
+      </nav>
+    </aside>
+
+    <main class="shell">
+      <header class="top">
+        <div class="title"><h1>团队总览</h1></div>
+        <nav class="subnav">
+          <a class="active" href="team_dashboard.html">团队总览</a>
+          <a href="team_standalone.html">独立 Agent</a>
+          <a href="team_temporary.html">临时召唤</a>
+        </nav>
+        <div class="actions">
+          <button class="btn primary" id="refreshBtn">刷新</button>
+        </div>
+      </header>
+
+      <div class="card headline">
+        <strong>团队全览</strong>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px;">更新时间：<span id="updatedAt">-</span></div>
+      </div>
+
+      <div class="card" id="teams"></div>
+    </main>
+  </div>
+
+  <script>
+    const API = `${window.location.protocol}//${window.location.host}`;
+    const qTeam = new URLSearchParams(window.location.search).get('team');
+
+    const safe = (v) => (v === null || v === undefined || v === '' ? '-' : String(v));
+
+    function statusClass(member) {
+      if (member?.health?.is_stalled) return 'stalled';
+      return member?.status === 'working' ? 'working' : 'idle';
+    }
+
+    function healthText(member) {
+      const st = member?.health?.status || 'unknown';
+      if (st === 'healthy') return '健康';
+      if (st === 'warning') return '预警';
+      if (st === 'stale') return '滞后';
+      return '未知';
+    }
+
+    async function fetchJSON(path) {
+      const res = await fetch(`${API}${path}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    }
+
+    function renderTeams(teams) {
+      const root = document.getElementById('teams');
+      if (!teams.length) {
+        root.innerHTML = '<div class="team-card"><div class="empty">暂无团队数据</div></div>';
+        return;
+      }
+
+      root.innerHTML = teams.map((team) => {
+        const rows = (team.members || []).map((m) => {
+          const backups = (m.backup_models || []).join(', ') || '-';
+          return `
+            <tr>
+              <td><span class="dot ${statusClass(m)}"></span>${safe(m.name)}<div class="mono">${safe(m.agent_id)}</div></td>
+              <td class="mono">${safe(m.model)}</td>
+              <td class="mono">${safe(backups)}</td>
+              <td>${m.status === 'working' ? '工作中' : '待工'} / ${healthText(m)}</td>
+              <td>${safe(m.current_task_name || m.current_task)}</td>
+            </tr>`;
+        }).join('');
+
+        const chipHtml = (team.responsibilities || []).map((r) => `<span class="chip">${safe(r)}</span>`).join('');
+        const workflow = (team.workflow?.stages || []).join(' → ');
+        const cls = qTeam && qTeam === team.team_id ? 'team-card highlight' : 'team-card';
+
+        return `
+          <div class="${cls}" id="team-${team.team_id}">
+            <div class="team-row">
+              <h3>${safe(team.team_name)}</h3>
+              <span class="tag">${safe(team.team_id)}</span>
+            </div>
+            <div style="font-size:13px;color:var(--muted);">${safe(team.description)}</div>
+            <div class="lead">Lead：<strong>${safe(team.lead?.name)}</strong> · <span class="mono">${safe(team.lead?.model)}</span> · 备选：<span class="mono">${safe((team.lead?.backup_models || []).join(', '))}</span></div>
+            <div class="chips">${chipHtml || '<span class="empty">暂无职责定义</span>'}</div>
+            <div class="workflow">流程：${safe(workflow)} · 当前阶段：<strong>${safe(team.workflow?.current_stage)}</strong></div>
+            <table>
+              <thead>
+                <tr>
+                  <th>成员</th>
+                  <th>模型</th>
+                  <th>备选模型</th>
+                  <th>状态</th>
+                  <th>当前任务</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows || '<tr><td colspan="5" class="empty">暂无成员</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }).join('');
+
+      if (qTeam) {
+        const el = document.getElementById(`team-${qTeam}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    async function loadPage() {
+      const [teamData, standaloneData, temporaryData] = await Promise.all([
+        fetchJSON('/api/teams'),
+        fetchJSON('/api/standalone-agents'),
+        fetchJSON('/api/temporary-agents')
+      ]);
+
+      const teams = teamData.teams || [];
+      const standalone = standaloneData.agents || [];
+      const temporary = temporaryData.agents || [];
+
+      renderTeams(teams);
+
+      document.getElementById('updatedAt').textContent = new Date(teamData.updated_at || Date.now()).toLocaleString('zh-CN');
+    }
+
+    async function safeLoad() {
+      try {
+        await loadPage();
+      } catch (err) {
+        console.error(err);
+        alert(`加载失败: ${err.message}`);
+      }
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', safeLoad);
+    safeLoad();
+    setInterval(safeLoad, 20000);
+  </script>
+</body>
+</html>

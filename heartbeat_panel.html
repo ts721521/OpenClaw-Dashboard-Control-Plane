@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心跳监控面板 - 递归治理 Phase 2</title>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        .last-update {
+            color: var(--info);
+            font-size: 13px;
+            margin-top: 10px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-healthy { background: var(--success); color: white; }
+        .status-degraded { background: var(--warning); color: black; }
+        .status-critical { background: var(--danger); color: white; }
+        .status-idle { background: var(--text-secondary); color: white; }
+        .status-active { background: var(--success); color: white; }
+        .status-timeout { background: var(--danger); color: white; }
+        .status-inactive { background: var(--bg-secondary); color: var(--text-secondary); }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .stat {
+            background: var(--bg-secondary);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--info);
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        .item-list {
+            list-style: none;
+        }
+        
+        .item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .item:last-child {
+            border-bottom: none;
+        }
+        
+        .item-name {
+            font-size: 14px;
+        }
+        
+        .item-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .dot-healthy { background: var(--success); }
+        .dot-degraded { background: var(--warning); }
+        .dot-critical { background: var(--danger); }
+        .dot-active { background: var(--success); }
+        .dot-idle { background: var(--warning); }
+        .dot-timeout { background: var(--danger); }
+        .dot-inactive { background: var(--text-secondary); }
+        
+        .issues {
+            margin-top: 15px;
+            padding: 12px;
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid var(--danger);
+        }
+        
+        .issues-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--danger);
+            margin-bottom: 8px;
+        }
+        
+        .issue-item {
+            font-size: 12px;
+            color: var(--text-secondary);
+            padding: 4px 0;
+        }
+        
+        .refresh-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--info);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            transition: all 0.2s;
+        }
+        
+        .refresh-btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--bg-secondary);
+            border-top-color: var(--info);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .auto-refresh {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💓 心跳监控面板</h1>
+            <p class="subtitle">递归治理 Phase 2 - 系统/团队/Agent 三层心跳监控</p>
+            <p class="last-update" id="lastUpdate">最后更新：--</p>
+        </header>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 15px;">加载心跳数据...</p>
+        </div>
+        
+        <div id="content" style="display: none;">
+            <!-- 系统层心跳 -->
+            <div class="grid">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🖥️ 系统层</span>
+                        <span class="status-badge" id="systemStatus">--</span>
+                    </div>
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="stat-value" id="systemTeams">--</div>
+                            <div class="stat-label">团队健康</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="systemCron">--</div>
+                            <div class="stat-label">Cron 正常</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="systemDisk">--</div>
+                            <div class="stat-label">磁盘使用</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="systemIssues">--</div>
+                            <div class="stat-label">问题数</div>
+                        </div>
+                    </div>
+                    <div id="systemIssuesList"></div>
+                </div>
+                
+                <!-- 团队层心跳 -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">👥 团队层</span>
+                        <span class="status-badge" id="teamStatus">--</span>
+                    </div>
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="stat-value" id="teamTotal">--</div>
+                            <div class="stat-label">总团队数</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="teamHealthy">--</div>
+                            <div class="stat-label">健康团队</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="teamDegraded">--</div>
+                            <div class="stat-label">异常团队</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="teamTasks">--</div>
+                            <div class="stat-label">进行中任务</div>
+                        </div>
+                    </div>
+                    <ul class="item-list" id="teamList"></ul>
+                    <div id="teamIssuesList"></div>
+                </div>
+                
+                <!-- Agent 层心跳 -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🤖 Agent 层</span>
+                        <span class="status-badge" id="agentStatus">--</span>
+                    </div>
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="stat-value" id="agentTotal">--</div>
+                            <div class="stat-label">总 Agent 数</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="agentActive">--</div>
+                            <div class="stat-label">活跃</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="agentIdle">--</div>
+                            <div class="stat-label">空闲</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="agentTimeout">--</div>
+                            <div class="stat-label">超时</div>
+                        </div>
+                    </div>
+                    <ul class="item-list" id="agentList"></ul>
+                    <div id="agentIssuesList"></div>
+                </div>
+            </div>
+            
+            <!-- 心跳频率说明 -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">📊 心跳频率配置</span>
+                </div>
+                <div class="grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 0;">
+                    <div class="stat">
+                        <div class="stat-value">5 分钟</div>
+                        <div class="stat-label">系统层心跳</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">2 分钟</div>
+                        <div class="stat-label">团队层心跳</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">30 秒</div>
+                        <div class="stat-label">Agent 层心跳</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <button class="refresh-btn" onclick="loadData()">🔄 刷新</button>
+        <p class="auto-refresh">自动刷新：每 30 秒</p>
+    </div>
+    
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const MEMORY_DIR = params.get('memory_dir') || '';
+        
+        async function loadData() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('content').style.display = 'none';
+            
+            try {
+                if (!MEMORY_DIR) {
+                    throw new Error('缺少 memory_dir 参数，例如 ?memory_dir=/Users/tianshuai/.openclaw/workspace/memory');
+                }
+                // 加载系统层心跳
+                const systemData = await loadJsonFile(`${MEMORY_DIR}/system_heartbeat.json`);
+                updateSystemCard(systemData);
+                
+                // 加载团队层心跳
+                const teamData = await loadJsonFile(`${MEMORY_DIR}/team_heartbeat.json`);
+                updateTeamCard(teamData);
+                
+                // 加载 Agent 层心跳
+                const agentData = await loadJsonFile(`${MEMORY_DIR}/agent_heartbeat.json`);
+                updateAgentCard(agentData);
+                
+                // 更新时间
+                document.getElementById('lastUpdate').textContent = `最后更新：${new Date().toLocaleString('zh-CN')}`;
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+            } catch (error) {
+                console.error('加载数据失败:', error);
+                document.getElementById('loading').innerHTML = `
+                    <p style="color: var(--danger);">加载失败</p>
+                    <p style="font-size: 12px; margin-top: 10px;">${error.message}</p>
+                    <p style="font-size: 12px; margin-top: 10px;">请确保心跳脚本已运行并生成数据文件</p>
+                `;
+            }
+        }
+        
+        async function loadJsonFile(path) {
+            // 由于浏览器无法直接读取本地文件，这里使用 fetch 模拟
+            // 实际使用时需要通过后端 API 或本地服务器提供数据
+            const response = await fetch(`file://${path}`);
+            if (!response.ok) throw new Error(`无法加载 ${path}`);
+            return await response.json();
+        }
+        
+        function updateSystemCard(data) {
+            if (!data) return;
+            
+            const statusEl = document.getElementById('systemStatus');
+            statusEl.textContent = data.status || 'unknown';
+            statusEl.className = `status-badge status-${data.status || 'unknown'}`;
+            
+            document.getElementById('systemTeams').textContent = 
+                `${data.teams?.healthy || 0}/${data.teams?.total || 0}`;
+            document.getElementById('systemCron').textContent = 
+                `${data.cron?.healthy || 0}/${data.cron?.total_jobs || 0}`;
+            document.getElementById('systemDisk').textContent = 
+                `${data.disk?.usage_percent || 0}%`;
+            document.getElementById('systemIssues').textContent = 
+                data.issues?.length || 0;
+            
+            const issuesList = document.getElementById('systemIssuesList');
+            if (data.issues && data.issues.length > 0) {
+                issuesList.innerHTML = `
+                    <div class="issues">
+                        <div class="issues-title">⚠️ 问题</div>
+                        ${data.issues.map(issue => `<div class="issue-item">• ${issue}</div>`).join('')}
+                    </div>
+                `;
+            } else {
+                issuesList.innerHTML = '';
+            }
+        }
+        
+        function updateTeamCard(data) {
+            if (!data) return;
+            
+            const statusEl = document.getElementById('teamStatus');
+            statusEl.textContent = data.status || 'unknown';
+            statusEl.className = `status-badge status-${data.status || 'unknown'}`;
+            
+            document.getElementById('teamTotal').textContent = data.total_teams || 0;
+            document.getElementById('teamHealthy').textContent = data.healthy_teams || 0;
+            document.getElementById('teamDegraded').textContent = data.degraded_teams || 0;
+            
+            // 计算进行中任务数
+            let inProgressTasks = 0;
+            if (data.teams) {
+                data.teams.forEach(team => {
+                    inProgressTasks += team.tasks?.in_progress || 0;
+                });
+            }
+            document.getElementById('teamTasks').textContent = inProgressTasks;
+            
+            const teamList = document.getElementById('teamList');
+            if (data.teams) {
+                teamList.innerHTML = data.teams.map(team => `
+                    <li class="item">
+                        <span class="item-name">${team.team_name || team.team_id}</span>
+                        <span class="item-status">
+                            <span class="status-dot dot-${team.status || 'unknown'}"></span>
+                            ${team.status || 'unknown'}
+                        </span>
+                    </li>
+                `).join('');
+            }
+        }
+        
+        function updateAgentCard(data) {
+            if (!data) return;
+            
+            const statusEl = document.getElementById('agentStatus');
+            statusEl.textContent = data.status || 'unknown';
+            statusEl.className = `status-badge status-${data.status || 'unknown'}`;
+            
+            document.getElementById('agentTotal').textContent = data.total_agents || 0;
+            document.getElementById('agentActive').textContent = data.active_agents || 0;
+            document.getElementById('agentIdle').textContent = data.idle_agents || 0;
+            document.getElementById('agentTimeout').textContent = data.timeout_agents || 0;
+            
+            const agentList = document.getElementById('agentList');
+            if (data.agents) {
+                agentList.innerHTML = data.agents.slice(0, 10).map(agent => `
+                    <li class="item">
+                        <span class="item-name">${agent.agent_id}</span>
+                        <span class="item-status">
+                            <span class="status-dot dot-${agent.status || 'unknown'}"></span>
+                            ${agent.status || 'unknown'}
+                        </span>
+                    </li>
+                `).join('');
+            }
+        }
+        
+        // 初始加载
+        loadData();
+        
+        // 自动刷新 (30 秒)
+        setInterval(loadData, 30000);
+    </script>
+</body>
+</html>

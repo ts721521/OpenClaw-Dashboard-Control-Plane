@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.env
+.env.local
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# 本地数据库（若在项目目录内生成）
+*.sqlite3
+*.db
+
+# 日志与临时
+*.log
+.tmp/
+control_audit.jsonl
+
+# Playwright / 测试
+.playwright-cli/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 系统与 IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 部署/本地配置（如有敏感信息可取消注释）
+# *.local
+# *.secret
