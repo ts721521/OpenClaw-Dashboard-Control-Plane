@@ -41,4 +41,4 @@ echo "按 Ctrl+C 停止服务"
 echo ""
 
 cd "$SCRIPT_DIR"
-python3 server.py "$PORT"
+python3 -m uvicorn app.main:app --host 0.0.0.0 --port "$PORT"

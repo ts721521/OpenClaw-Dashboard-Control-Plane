@@ -28,7 +28,7 @@ Or directly:
 cd /Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane
 OPENCLAW_BASE_DIR=/Users/tianshuai/.openclaw \
 OPENCLAW_WORKSPACE=/Users/tianshuai/.openclaw/workspace \
-python3 server.py 8888
+python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8888
 ```
 
 ## Main Pages
