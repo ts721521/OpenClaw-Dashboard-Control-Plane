@@ -1,14 +1,13 @@
-from fastapi import FastAPI
 from datetime import datetime, timezone
 
-
-def now_iso() -> str:
-    return datetime.now(timezone.utc).astimezone().isoformat()
-
+from fastapi import FastAPI
 
 app = FastAPI()
 
 
 @app.get("/api/health")
-def health():
-    return {"status": "ok", "updated_at": now_iso()}
+async def health() -> dict[str, str]:
+    return {
+        "status": "ok",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
