@@ -21,6 +21,7 @@ Do not invent parallel object models without updating the design docs in `docs/p
 ## Development Rules
 - Frontend should access data through API/view-models, not SQLite internals.
 - Business, handoff, review, and publish gates belong in the service layer.
+- Task list trust summary is derived from `/api/tasks` list fields (runtime + live_freshness + gate fields); do not add per-task detail calls.
 - Workflow designer is the primary team-state-machine editor.
 - Raw config editing is expert mode only.
 - Treat this repo as the source of truth, then sync runtime code to `/Users/tianshuai/.openclaw/workspace/dashboard-live` with `scripts/deploy_local.sh` for launchd.

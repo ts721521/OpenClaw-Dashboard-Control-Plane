@@ -181,6 +181,29 @@ The following flows were executed against the live service on `http://localhost:
   - `frontend/system/governance.ts` (change/review/recovery governance)
   - `frontend/system/advanced_config.ts` (workflow designer + expert config)
 
+## 2026-03-16 task list trust summary update
+
+- `/api/tasks` now returns list-level trust fields:
+  - `live_freshness`
+  - `business_bound`
+  - `business_truth_source`
+  - `acceptance_result`
+  - `gate_result`
+- Task list cards now show a “可信度行”:
+  - `运行态: <state/hint>`
+  - `实时数据: <fresh|stale|unavailable>`
+  - `Gate: 阻断 xN / Gate OK`
+- Smoke script asserts the new list labels.
+
+### Verification evidence
+- Unit test:
+  - `python3 -m unittest tests.test_dashboard_data_service.DashboardDataServiceTests.test_get_tasks_exposes_gate_and_live_freshness`
+  - result: `OK`
+- Full smoke run (local runtime):
+  - `TASK-20260316-9EA7B4`
+  - `CHANGE-20260316-8D9480`
+  - `REVIEW-20260316-ADC193`
+
 ## Live review artifacts currently in the system
 These are test/smoke records and may still exist:
 - `REVIEW-20260315-247957`
