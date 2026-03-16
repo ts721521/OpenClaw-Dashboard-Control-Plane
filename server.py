@@ -1367,11 +1367,13 @@ class DashboardDataService:
         target_dir = self.task_archive_dir / stamp
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        src = Path(str(task.get("_file") or ""))
-        base_name = src.name if src.exists() else self._task_filename(task_id)
+        src_path = str(task.get("_file") or "").strip()
+        src = Path(src_path) if src_path else None
+        src_is_file = bool(src and src.exists() and src.is_file())
+        base_name = src.name if src_is_file else self._task_filename(task_id)
         target = target_dir / base_name
         if target.exists():
-            stem = src.stem if src.exists() else task_id.lower().replace("-", "_")
+            stem = src.stem if src_is_file else task_id.lower().replace("-", "_")
             target = target_dir / f"{stem}-{int(time.time())}.json"
 
         archive_payload = {
@@ -1379,12 +1381,12 @@ class DashboardDataService:
                 "archived_at": now_iso(),
                 "operator": operator or "dashboard",
                 "reason": reason or "manual_delete",
-                "source_path": str(src) if src.exists() else None,
+                "source_path": str(src) if src_is_file else None,
             },
             "task": {k: v for k, v in task.items() if k != "_file"},
         }
         self._write_json(target, archive_payload)
-        if src.exists():
+        if src_is_file:
             src.unlink(missing_ok=True)
         self._task_repo.archive_task(task_id, archive_path=str(target))
 

@@ -893,6 +893,24 @@ class DashboardDataServiceTests(unittest.TestCase):
         self.assertFalse(denied.get("ok"))
         self.assertEqual(denied.get("error"), "permission denied")
 
+    def test_delete_task_archives_api_task_without_file(self):
+        from server import DashboardDataService
+
+        svc = DashboardDataService(base_dir=str(self.base), workspace_dir=str(self.workspace), status_provider=lambda: {"agents": {"agents": []}})
+        created = svc.create_task(
+            payload={"task_name": "API 创建任务", "description": "delete archive"},
+            actor_id="main",
+            actor_role="admin",
+        )
+        self.assertTrue(created.get("ok"))
+        task_id = created.get("task_id")
+
+        deleted = svc.delete_task(task_id, operator="main", reason="unit_test_delete", operator_role="admin")
+        self.assertTrue(deleted.get("ok"))
+        archive_path = deleted.get("archive_path")
+        self.assertTrue(archive_path)
+        self.assertTrue(Path(archive_path).exists())
+
     def test_assigned_agent_can_update_progress(self):
         from server import DashboardDataService
 

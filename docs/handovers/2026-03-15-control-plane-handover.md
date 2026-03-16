@@ -204,6 +204,16 @@ The following flows were executed against the live service on `http://localhost:
   - `CHANGE-20260316-8D9480`
   - `REVIEW-20260316-ADC193`
 
+## 2026-03-16 task delete fix
+
+- `delete_task` now safely archives tasks created via API that do not have a source file.
+- Prevents unlinking the current directory when `_file` is missing.
+
+### Verification evidence
+- Unit test:
+  - `python3 -m unittest tests.test_dashboard_data_service.DashboardDataServiceTests.test_delete_task_archives_api_task_without_file`
+  - result: `OK`
+
 ## Live review artifacts currently in the system
 These are test/smoke records and may still exist:
 - `REVIEW-20260315-247957`
