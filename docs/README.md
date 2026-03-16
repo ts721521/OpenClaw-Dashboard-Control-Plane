@@ -16,25 +16,30 @@ Its job is to tell the next AI:
 2. [2026-03-16-architecture-upgrade-design.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-16-architecture-upgrade-design.md)
 3. [2026-03-16-frontend-modularization-design.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-16-frontend-modularization-design.md)
 4. [2026-03-16-frontend-modularization-implementation-plan.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-16-frontend-modularization-implementation-plan.md)
-5. [2026-03-16-architecture-upgrade-implementation-plan.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-16-architecture-upgrade-implementation-plan.md)
-6. [2026-03-15-control-plane-handover.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/handovers/2026-03-15-control-plane-handover.md)
-7. [2026-03-15-migration-boundaries.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-15-migration-boundaries.md)
-8. [2026-03-15-team-workflow-designer-design.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-15-team-workflow-designer-design.md)
-9. [2026-03-14-openclaw-control-plane-prd.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-14-openclaw-control-plane-prd.md)
-10. [2026-03-14-braintrust-review-system-prd.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-14-braintrust-review-system-prd.md)
-11. [2026-03-14-constitution-runtime-mapping-spec.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-14-constitution-runtime-mapping-spec.md)
-12. [2026-03-14-minimal-kernel-implementation-plan.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-14-minimal-kernel-implementation-plan.md)
+5. [2026-03-16-system-dashboard-modularization-implementation-plan.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-16-system-dashboard-modularization-implementation-plan.md)
+6. [2026-03-16-architecture-upgrade-implementation-plan.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-16-architecture-upgrade-implementation-plan.md)
+7. [2026-03-15-control-plane-handover.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/handovers/2026-03-15-control-plane-handover.md)
+8. [2026-03-15-migration-boundaries.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-15-migration-boundaries.md)
+9. [2026-03-15-team-workflow-designer-design.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-15-team-workflow-designer-design.md)
+10. [2026-03-14-openclaw-control-plane-prd.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-14-openclaw-control-plane-prd.md)
+11. [2026-03-14-braintrust-review-system-prd.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-14-braintrust-review-system-prd.md)
+12. [2026-03-14-constitution-runtime-mapping-spec.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-14-constitution-runtime-mapping-spec.md)
+13. [2026-03-14-minimal-kernel-implementation-plan.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-14-minimal-kernel-implementation-plan.md)
 
 ### If you are doing frontend work
 1. [2026-03-15-openclaw-control-plane-architecture.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-15-openclaw-control-plane-architecture.md)
 2. [2026-03-16-frontend-modularization-design.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-16-frontend-modularization-design.md)
 3. [2026-03-16-frontend-modularization-implementation-plan.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-16-frontend-modularization-implementation-plan.md)
-4. [2026-03-15-control-plane-handover.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/handovers/2026-03-15-control-plane-handover.md)
-5. [2026-03-15-team-workflow-designer-design.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-15-team-workflow-designer-design.md)
-6. [system_dashboard.html](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/system_dashboard.html)
-7. [task_dashboard.html](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/task_dashboard.html)
-8. [frontend/system/index.ts](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/frontend/system/index.ts)
-9. [frontend/task/index.ts](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/frontend/task/index.ts)
+4. [2026-03-16-system-dashboard-modularization-implementation-plan.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-16-system-dashboard-modularization-implementation-plan.md)
+5. [2026-03-15-control-plane-handover.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/handovers/2026-03-15-control-plane-handover.md)
+6. [2026-03-15-team-workflow-designer-design.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-15-team-workflow-designer-design.md)
+7. [system_dashboard.html](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/system_dashboard.html)
+8. [task_dashboard.html](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/task_dashboard.html)
+9. [frontend/system/index.ts](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/frontend/system/index.ts)
+10. [frontend/system/architecture.ts](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/frontend/system/architecture.ts)
+11. [frontend/system/governance.ts](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/frontend/system/governance.ts)
+12. [frontend/system/advanced_config.ts](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/frontend/system/advanced_config.ts)
+13. [frontend/task/index.ts](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/frontend/task/index.ts)
 
 ### If you are doing backend work
 1. [2026-03-15-openclaw-control-plane-architecture.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-15-openclaw-control-plane-architecture.md)
@@ -56,6 +61,8 @@ Its job is to tell the next AI:
 - Frontend modularization design:
   - [2026-03-16-frontend-modularization-design.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-16-frontend-modularization-design.md)
   - [2026-03-16-frontend-modularization-implementation-plan.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-16-frontend-modularization-implementation-plan.md)
+- System dashboard modularization plan:
+  - [2026-03-16-system-dashboard-modularization-implementation-plan.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/plans/2026-03-16-system-dashboard-modularization-implementation-plan.md)
 - Current implementation truth and residual issues:
   - [2026-03-15-control-plane-handover.md](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/docs/handovers/2026-03-15-control-plane-handover.md)
 - Workflow designer graph/config mapping:
@@ -92,6 +99,10 @@ The dashboard must not vendor or commit runtime state from that external tree.
 - Runtime config boundary: [dashboard_runtime.py](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/dashboard_runtime.py)
 - Task center UI: [task_dashboard.html](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/task_dashboard.html)
 - Governance and workflow designer UI: [system_dashboard.html](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/system_dashboard.html)
+- System dashboard modules:
+  - [frontend/system/architecture.ts](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/frontend/system/architecture.ts)
+  - [frontend/system/governance.ts](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/frontend/system/governance.ts)
+  - [frontend/system/advanced_config.ts](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/frontend/system/advanced_config.ts)
 - Browser smoke: [control_plane_smoke.sh](/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane/scripts/control_plane_smoke.sh)
 
 ## External Review Opinions
