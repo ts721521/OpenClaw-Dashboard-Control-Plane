@@ -23,6 +23,8 @@ build/
 .tmp/
 control_audit.jsonl
 .worktrees/
+node_modules/
+static/build/
 
 # Playwright / 测试
 .playwright-cli/
