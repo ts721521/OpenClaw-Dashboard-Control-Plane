@@ -66,6 +66,16 @@ External runtime stays here:
 - `OPENCLAW_BASE_DIR=/Users/tianshuai/.openclaw`
 - `OPENCLAW_WORKSPACE=/Users/tianshuai/.openclaw/workspace`
 
+Local macOS service should run from the deployment copy here:
+- `/Users/tianshuai/.openclaw/workspace/dashboard-live`
+
+Refresh that deployment copy from the repo with:
+
+```bash
+cd /Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane
+./scripts/deploy_local.sh
+```
+
 The dashboard must not vendor or commit runtime state from that external tree.
 
 ## Main Implementation Files

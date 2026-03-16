@@ -79,9 +79,30 @@ cd /Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane
 API_BASE=http://localhost:8888 ./scripts/control_plane_smoke.sh
 ```
 
+## Local Deployment Copy
+
+macOS `launchd` should not run directly from `Documents/...` because background agents can hit TCC permission failures there.
+
+Use the repo as the development source, then sync a local deployment copy under `.openclaw`:
+
+```bash
+cd /Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane
+./scripts/deploy_local.sh
+```
+
+Default deployment target:
+
+- `/Users/tianshuai/.openclaw/workspace/dashboard-live`
+
+Override it if needed:
+
+```bash
+DEPLOY_DIR=/some/other/path ./scripts/deploy_local.sh
+```
+
 ## launchd Example
 
 An example plist lives at:
 - `deploy/ai.openclaw.dashboard.example.plist`
 
-Copy and adapt it instead of editing system launch config blindly.
+Copy and adapt it instead of editing system launch config blindly. The example is written to run the `.openclaw/workspace/dashboard-live` deployment copy, not the repo path in `Documents/`.

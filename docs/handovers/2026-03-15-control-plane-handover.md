@@ -14,6 +14,23 @@ External runtime stays outside the repo:
 
 Do not copy runtime state, agent workspaces, memory, secrets, or logs into this repository.
 
+## Runtime deployment note
+Development happens in this GitHub repo.
+
+The always-on local service should run from a deployment copy outside `Documents/`:
+- source repo: `/Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane`
+- deployed runtime copy: `/Users/tianshuai/.openclaw/workspace/dashboard-live`
+
+Reason: macOS `launchd` background jobs can hit TCC `Operation not permitted` errors when executing directly from `Documents/`.
+
+To refresh the local deployment copy after repo changes:
+
+```bash
+cd /Users/tianshuai/Documents/GitHub/OpenClaw-Dashboard-Control-Plane
+./scripts/deploy_local.sh
+launchctl kickstart -k gui/$(id -u)/ai.openclaw.dashboard
+```
+
 ## Current intent
 The system is no longer being treated as a loose dashboard. It is being turned into a control plane:
 - strong rules at the task/review/change layer

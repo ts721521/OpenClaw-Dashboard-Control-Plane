@@ -23,6 +23,7 @@ Do not invent parallel object models without updating the design docs in `docs/p
 - Business, handoff, review, and publish gates belong in the service layer.
 - Workflow designer is the primary team-state-machine editor.
 - Raw config editing is expert mode only.
+- Treat this repo as the source of truth, then sync runtime code to `/Users/tianshuai/.openclaw/workspace/dashboard-live` with `scripts/deploy_local.sh` for launchd.
 - Update `docs/handovers/` and relevant `docs/plans/` when behavior changes.
 
 ## Primary Entry Points

@@ -2582,43 +2582,9 @@
 
       document.getElementById('mainBody').innerHTML = `
         <div class="governance">
-          <section class="editor-card" style="margin-bottom:12px;border-color:#dca45f;background:#fffaf2;">
-            <h4>高级配置</h4>
-            <div style="font-size:13px;color:#795428;line-height:1.7;">这是底层规则编辑区。先确认你点的是谁、实际改的是谁，再决定是否编辑。这里不是日常治理操作页，改动会影响系统底盘。</div>
-          </section>
-
-          <section class="object-summary">
-            <div style="font-size:13px;font-weight:800;color:var(--brand);">正在编辑 ${safe(state.selectedTargetId || '未命中目标')}</div>
-            <div class="object-kv">
-              <div class="k">你当前点的是</div><div>${safe(meta.name)}（${objectTypeLabel(meta.type)} · <span class="mono">${safe(meta.id)}</span>）</div>
-              <div class="k">实际编辑对象</div><div>${safe(targetSummary)}</div>
-              <div class="k">影响范围</div><div>${targetTeam ? `团队负责人、内部流程状态机、治理提示词补丁和发布队列都会作用到 ${safe(targetTeam.team_name)}` : '当前对象没有独立可编辑目标，仅支持查看说明。'}</div>
-              <div class="k">入口说明</div><div>${safe(meta.editable?.reason || '当前对象没有可编辑的底层配置。')}</div>
-            </div>
-            <div class="impact-list">
-              ${(hasEditableTarget ? ['团队负责人', '团队流程状态机', '治理提示词补丁', '发布队列'] : ['当前对象不适用']).map((label) => `<span class="chip">${label}</span>`).join('')}
-            </div>
-            <div class="row-actions">
-              <button class="btn" id="backToSelectedArchitectureBtn">返回架构关系图</button>
-              <button class="btn" id="viewGovernanceForTargetBtn">查看治理状态</button>
-            </div>
-          </section>
-
           ${modeContent}
         </div>
       `;
-
-      document.getElementById('backToSelectedArchitectureBtn')?.addEventListener('click', () => {
-        state.view = 'architecture-map';
-        syncRouteState();
-        renderAll();
-      });
-      document.getElementById('viewGovernanceForTargetBtn')?.addEventListener('click', () => {
-        state.view = 'governance';
-        state.governanceView = 'change';
-        syncRouteState();
-        renderAll();
-      });
 
       if (!hasEditableTarget) return;
 
