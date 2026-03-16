@@ -170,6 +170,13 @@ The following flows were executed against the live service on `http://localhost:
 - Static compatibility routing is served by FastAPI (`/task_dashboard.html`, `/system_dashboard.html`, `/static/*`).
 - `start.sh` now runs Uvicorn against `app.main:app` for local dev.
 
+## 2026-03-16 frontend modularization update
+
+- Vite multi-entry build introduced with outputs under `static/build/`.
+- `task_dashboard.html` and `system_dashboard.html` now load `static/build/*.js`.
+- Task dashboard logic moved to `frontend/task/` and shared helpers in `frontend/shared/`.
+- System dashboard logic moved to `frontend/system/`, including workflow designer model.
+
 ## Live review artifacts currently in the system
 These are test/smoke records and may still exist:
 - `REVIEW-20260315-247957`
