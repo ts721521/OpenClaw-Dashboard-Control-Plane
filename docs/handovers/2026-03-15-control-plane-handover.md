@@ -176,6 +176,10 @@ The following flows were executed against the live service on `http://localhost:
 - `task_dashboard.html` and `system_dashboard.html` now load `static/build/*.js`.
 - Task dashboard logic moved to `frontend/task/` and shared helpers in `frontend/shared/`.
 - System dashboard logic moved to `frontend/system/`, including workflow designer model.
+- System dashboard further modularized:
+  - `frontend/system/architecture.ts` (architecture map + object selection)
+  - `frontend/system/governance.ts` (change/review/recovery governance)
+  - `frontend/system/advanced_config.ts` (workflow designer + expert config)
 
 ## Live review artifacts currently in the system
 These are test/smoke records and may still exist:
