@@ -5,11 +5,7 @@ import { renderUpdatedAt } from './render';
 import {
   bindArchitectureCallbacks,
   clearArchitectureSelection,
-  getArchitectureIndex,
-  getRelevantConfigGroups,
   getSelectedObjectMeta,
-  getTargetTeamLead,
-  getTargetStateMachine,
   renderArchitecture,
   syncEditableTargetFromSelection,
 } from './architecture';
@@ -21,65 +17,12 @@ import {
   renderGovernance,
 } from './governance';
 import {
-  cloneDoc,
-  normalizeStateId,
-  transitionTypeLabel,
-  buildWorkflowGraph as buildWorkflowGraphModel,
-  validateWorkflowGraph,
-  serializeWorkflowGraph as serializeWorkflowGraphModel,
-} from './workflow_model';
+  bindAdvancedConfigCallbacks,
+  loadConfigDocs,
+  renderAdvancedConfig,
+} from './advanced_config';
 
 (window as any).__SYSTEM_DASHBOARD_BOOTSTRAP__ = true;
-    function buildWorkflowGraph(targetId) {
-      return buildWorkflowGraphModel(state.teamStateDoc, targetId);
-    }
-
-    function ensureWorkflowGraph(targetId) {
-      if (!targetId) {
-        state.workflowGraphTargetId = null;
-        state.workflowGraph = null;
-        state.selectedWorkflowNodeId = null;
-        state.selectedWorkflowEdgeKey = null;
-        state.workflowLinkFromNodeId = null;
-        return null;
-      }
-      if (state.workflowGraph && state.workflowGraphTargetId === targetId) return state.workflowGraph;
-      state.workflowGraphTargetId = targetId;
-      state.workflowGraph = buildWorkflowGraph(targetId);
-      state.selectedWorkflowNodeId = state.workflowGraph.startNodeId || state.workflowGraph.nodes[0]?.id || null;
-      state.selectedWorkflowEdgeKey = null;
-      state.workflowLinkFromNodeId = null;
-      return state.workflowGraph;
-    }
-
-    function getSelectedWorkflowNode() {
-      return state.workflowGraph?.nodes?.find((node) => node.id === state.selectedWorkflowNodeId) || null;
-    }
-
-    function getSelectedWorkflowEdge() {
-      return state.workflowGraph?.edges?.find((edge) => edge.key === state.selectedWorkflowEdgeKey) || null;
-    }
-
-    function serializeWorkflowGraph(targetId, graph) {
-      return serializeWorkflowGraphModel(state.teamStateDoc, targetId, graph);
-    }
-
-    function queueWorkflowDoc(doc, targetId) {
-      state.pendingChanges['team-state-machines'] = {
-        target: 'team-state-machines',
-        doc,
-        desc: `${targetId} 团队流程设计器`,
-      };
-    }
-    async function putJSON(path, payload) {
-      const res = await fetch(`${API}${path}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload || {}),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    }
 
     function fmtTime(v) {
       return new Date(v || Date.now()).toLocaleString('zh-CN');
@@ -226,18 +169,6 @@ import {
       }
       const detail = await fetchJSON(`/api/flow/detail?flow_id=${encodeURIComponent(state.selectedFlowId)}`);
       state.flowDetail = detail.error ? null : detail;
-    }
-
-    async function loadConfigDocs() {
-      const [teamLeadsRes, teamStateRes, runtimeVersionRes] = await Promise.all([
-        fetchJSON('/api/config/team-leads'),
-        fetchJSON('/api/config/team-state-machines'),
-        fetchJSON('/api/runtime-versions'),
-      ]);
-      state.teamLeadsDoc = teamLeadsRes.doc || null;
-      state.teamStateDoc = teamStateRes.doc || null;
-      state.runtimeVersions = runtimeVersionRes || {};
-      await loadGovernance();
     }
 
     function applyRouteFromQuery() {
@@ -391,6 +322,7 @@ import {
     }
 
     bindGovernanceCallbacks({ loadConfigDocs, loadAllData, renderAll, syncRouteState });
+    bindAdvancedConfigCallbacks({ loadGovernance, loadAllData, renderAll, syncRouteState });
 
     async function refresh() {
       await loadAllData();
