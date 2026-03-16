@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
-from dashboard_runtime import resolve_runtime_config
 from task_repository import TaskRepository
 
 
@@ -48,8 +47,6 @@ def parse_dt(value: str | None) -> datetime | None:
 
 
 def model_pair(model_cfg: dict[str, Any] | None) -> tuple[str, list[str]]:
-    if isinstance(model_cfg, str):
-        return str(model_cfg), []
     model_cfg = model_cfg or {}
     primary = model_cfg.get("primary") or "unknown"
     fallbacks = model_cfg.get("fallbacks") or []
@@ -966,6 +963,10 @@ class DashboardDataService:
             "next_stage": next_stage,
             "unclaimed": owner in {"", "unassigned", "none", "null"},
             "stage_cards": stage_cards,
+            "business_bound": bool(task.get("business_bound")),
+            "business_truth_source": str(task.get("business_truth_source") or ""),
+            "acceptance_result": str(task.get("acceptance_result") or ""),
+            "gate_result": str(task.get("gate_result") or ""),
             "_raw": task,
         }
 
@@ -2567,12 +2568,15 @@ class DashboardDataService:
         )
 
         runtime = self._build_agent_runtime(non_blocking=True)
+        live = self._claw_live_snapshot(non_blocking=True)
+        live_freshness = str(live.get("freshness") or "unavailable")
         tasks = [self._summarize_task(t) for t in raw_rows]
         for t in tasks:
             health = self._agent_health(t["owner"], runtime, t["status"] == "in_progress")
             rt = self._runtime_state(t["status"], health)
             t["runtime_state"] = rt["state"]
             t["runtime_hint"] = rt["hint"]
+            t["live_freshness"] = live_freshness
             t.pop("_raw", None)
 
         return {
@@ -3403,12 +3407,7 @@ class DashboardDataService:
         }
 
 
-def _build_service_from_env() -> DashboardDataService:
-    runtime = resolve_runtime_config(repo_dir=Path(__file__).resolve().parent)
-    return DashboardDataService(base_dir=str(runtime.base_dir), workspace_dir=str(runtime.workspace_dir))
-
-
-SERVICE = _build_service_from_env()
+SERVICE = DashboardDataService()
 
 
 class DashboardAPIHandler(SimpleHTTPRequestHandler):
@@ -3792,8 +3791,6 @@ class DashboardAPIHandler(SimpleHTTPRequestHandler):
 
 def run_server(port: int = 8080):
     os.chdir(Path(__file__).resolve().parent)
-    global SERVICE
-    SERVICE = _build_service_from_env()
     server = ThreadingHTTPServer(("", port), DashboardAPIHandler)
     print("OpenClaw Dashboard API Server (real-data) started")
     print(f"http://localhost:{port}")
@@ -3803,6 +3800,5 @@ def run_server(port: int = 8080):
 if __name__ == "__main__":
     import sys
 
-    port_arg = int(sys.argv[1]) if len(sys.argv) > 1 else None
-    runtime = resolve_runtime_config(repo_dir=Path(__file__).resolve().parent, port=port_arg)
-    run_server(runtime.port)
+    p = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
+    run_server(p)

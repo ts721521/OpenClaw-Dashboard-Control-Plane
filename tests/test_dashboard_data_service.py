@@ -282,6 +282,37 @@ class DashboardDataServiceTests(unittest.TestCase):
         self.assertLess(elapsed, 0.2, f"get_tasks should not block on gateway refresh, took {elapsed:.3f}s")
         self.assertEqual(len(data.get("tasks") or []), 1)
 
+    def test_get_tasks_exposes_gate_and_live_freshness(self):
+        from server import DashboardDataService
+
+        svc = DashboardDataService(
+            base_dir=str(self.base),
+            workspace_dir=str(self.workspace),
+            status_provider=lambda: {"agents": {"agents": []}},
+            gateway_status_provider=lambda: {},
+        )
+        created = svc.create_task(
+            payload={
+                "task_name": "Gate 字段任务",
+                "business_bound": True,
+                "business_truth_source": "prd://gate",
+                "acceptance_result": "pending_acceptance",
+                "gate_result": "REWORK",
+            },
+            actor_id="main",
+            actor_role="admin",
+        )
+        task_id = created.get("task_id")
+        data = svc.get_tasks(include_history=True)
+        items = {t.get("task_id"): t for t in data.get("tasks") or []}
+        self.assertIn(task_id, items)
+        item = items[task_id]
+        self.assertIn(item.get("live_freshness"), {"fresh", "stale", "unavailable"})
+        self.assertTrue(item.get("business_bound"))
+        self.assertEqual(item.get("business_truth_source"), "prd://gate")
+        self.assertEqual(item.get("acceptance_result"), "pending_acceptance")
+        self.assertEqual(item.get("gate_result"), "REWORK")
+
     def test_task_detail_stage_owner_prefers_deliverable_owner_and_current_step(self):
         from server import DashboardDataService
 

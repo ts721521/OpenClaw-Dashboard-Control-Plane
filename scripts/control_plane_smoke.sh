@@ -4,9 +4,7 @@ set -euo pipefail
 API_BASE="${API_BASE:-http://localhost:8888}"
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 PWCLI="$CODEX_HOME/skills/playwright/scripts/playwright_cli.sh"
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-WORK_DIR="${WORK_DIR:-$REPO_DIR/.tmp/playwright/control-plane-smoke}"
+WORK_DIR="${WORK_DIR:-/Users/tianshuai/.openclaw/output/playwright/control-plane-smoke}"
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -271,6 +269,9 @@ sleep 3
 task_snapshot_1="$(ls -t .playwright-cli/page-*.yml | head -n 1)"
 rg -q "$task_id" "$task_snapshot_1"
 rg -q "缺少业务真相源" "$task_snapshot_1"
+rg -q "运行态" "$task_snapshot_1"
+rg -q "实时数据" "$task_snapshot_1"
+rg -q "Gate" "$task_snapshot_1"
 rg -q "阶段交接与产物操作" "$task_snapshot_1"
 
 "$PWCLI" --session "$task_session" eval "document.getElementById('artifactPathInput').value='/tmp/$task_id-prd.md',document.getElementById('artifactSummaryInput').value='Smoke artifact from control_plane_smoke.sh',document.getElementById('addArtifactBtn').click(),1" >/tmp/ocp-smoke-artifact.log
