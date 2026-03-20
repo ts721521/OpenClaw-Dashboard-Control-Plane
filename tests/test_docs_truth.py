@@ -29,3 +29,11 @@ class TestDocsTruth(unittest.TestCase):
         self.assertIn("系统架构中心", contents)
         self.assertIn("team_dashboard.html", contents)
         self.assertIn("不得改动产品骨架", contents)
+
+    def test_docs_structure_exists_and_requires_docs_under_docs_tree(self):
+        structure = ROOT / "docs/STRUCTURE.md"
+        self.assertTrue(structure.exists())
+        contents = structure.read_text(encoding="utf-8")
+        self.assertIn("do not place design or handover Markdown in the repo root", contents)
+        self.assertIn("`task_dashboard.html`", contents)
+        self.assertIn("`system_dashboard.html`", contents)

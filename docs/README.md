@@ -7,6 +7,7 @@ Read this file first. It defines:
 - the source-of-truth docs
 - the current runtime boundaries
 - which pages are core and which are frozen
+- how docs are classified inside `docs/`
 
 ## Current Product Structure
 
@@ -52,9 +53,10 @@ Do not expand frozen pages unless there is an explicit design decision to bring 
 1. [2026-03-15-openclaw-control-plane-architecture.md](/Users/tianshuai/.openclaw/workspace/dashboard-live/docs/plans/2026-03-15-openclaw-control-plane-architecture.md)
 2. [2026-03-15-control-plane-handover.md](/Users/tianshuai/.openclaw/workspace/dashboard-live/docs/handovers/2026-03-15-control-plane-handover.md)
 3. [AGENTS.md](/Users/tianshuai/.openclaw/workspace/dashboard-live/AGENTS.md)
-4. For frontend visual redesign constraints:
+4. [STRUCTURE.md](/Users/tianshuai/.openclaw/workspace/dashboard-live/docs/STRUCTURE.md)
+5. For frontend visual redesign constraints:
    - [2026-03-20-frontend-visual-redesign-brief.md](/Users/tianshuai/.openclaw/workspace/dashboard-live/docs/plans/2026-03-20-frontend-visual-redesign-brief.md)
-5. If needed for original product intent:
+6. If needed for original product intent:
    - [2026-03-14-openclaw-control-plane-prd.md](/Users/tianshuai/.openclaw/workspace/dashboard-live/docs/plans/2026-03-14-openclaw-control-plane-prd.md)
    - [2026-03-14-braintrust-review-system-prd.md](/Users/tianshuai/.openclaw/workspace/dashboard-live/docs/plans/2026-03-14-braintrust-review-system-prd.md)
    - [2026-03-14-constitution-runtime-mapping-spec.md](/Users/tianshuai/.openclaw/workspace/dashboard-live/docs/plans/2026-03-14-constitution-runtime-mapping-spec.md)

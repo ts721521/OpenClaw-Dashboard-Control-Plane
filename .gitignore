@@ -40,6 +40,12 @@ htmlcov/
 *.swo
 *~
 
+# 仓库根目录漂移副本（不属于正式结构）
+/2026-03-15-control-plane-handover.md
+/index.ts
+/test_dashboard_data_service.py
+/test_system_dashboard_bundle.py
+
 # 部署/本地配置（如有敏感信息可取消注释）
 # *.local
 # *.secret
