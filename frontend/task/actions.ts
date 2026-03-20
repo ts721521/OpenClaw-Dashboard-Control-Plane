@@ -98,6 +98,15 @@ export async function confirmDispatch(taskId: string, assignedTo: string | null)
   return res;
 }
 
+export async function applyRecommendedAction(taskId: string): Promise<any> {
+  const res = await postJson<any>(`${API}/api/tasks/${encodeURIComponent(taskId)}/apply-recommended-action`, {
+    actor_id: 'dashboard-ui',
+    actor_role: 'admin',
+  }, 12000);
+  if (!res.ok) throw new Error(res.error || '应用建议失败');
+  return res;
+}
+
 export async function renderDetail(taskId: string, state: TaskDashboardState): Promise<void> {
   const root = document.getElementById('detail');
   if (!root) return;
@@ -120,6 +129,7 @@ export async function renderDetail(taskId: string, state: TaskDashboardState): P
   const reclaimReviewBtn = document.getElementById('reclaimReviewBtn');
   const addArtifactBtn = document.getElementById('addArtifactBtn');
   const handoffStageBtn = document.getElementById('handoffStageBtn');
+  const applyRecommendedActionBtn = document.getElementById('applyRecommendedActionBtn');
 
   claimBtn?.addEventListener('click', async () => {
     try {
@@ -201,6 +211,17 @@ export async function renderDetail(taskId: string, state: TaskDashboardState): P
     } catch (err) {
       const error = err as Error;
       alert(`删除失败: ${safe(error.message)}`);
+    }
+  });
+
+  applyRecommendedActionBtn?.addEventListener('click', async () => {
+    try {
+      const res = await applyRecommendedAction(taskId);
+      alert(`已应用建议: ${safe(res.applied_action || detail?.next_recommended_action)}`);
+      await refreshAll(state);
+    } catch (err) {
+      const error = err as Error;
+      alert(`应用建议失败: ${safe(error.message)}`);
     }
   });
 

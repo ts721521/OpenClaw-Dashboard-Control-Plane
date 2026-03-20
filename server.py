@@ -57,6 +57,7 @@ def model_pair(model_cfg: dict[str, Any] | None) -> tuple[str, list[str]]:
 
 class DashboardDataService:
     HARD_CONTROL_TIMEOUT_SECONDS = 25
+    GRAPH_EDIT_DISPATCH_TIMEOUT_SECONDS = 120
     ACTIVE_TEAM_IDS = {"team-rd", "team-km", "team-braintrust"}
     RETIRED_TEAM_IDS = {"team-proposal", "team-smart3d"}
 
@@ -148,6 +149,9 @@ class DashboardDataService:
         self.dashboard_dir = Path(__file__).resolve().parent
         self.team_leads_path = self.workspace_dir / "config" / "team_leads.json"
         self.team_state_machines_path = self.workspace_dir / "config" / "team_state_machines.json"
+        self.architecture_graph_path = self.workspace_dir / "config" / "architecture_graph.json"
+        self.inter_team_flows_path = self.workspace_dir / "config" / "inter_team_flows.json"
+        self.ui_layouts_path = self.workspace_dir / "config" / "ui_layouts.json"
         self.control_audit_path = self.dashboard_dir / "control_audit.jsonl"
         self.config_backup_root = self.workspace_dir / "config" / "_backups"
         self.pangu_queue_path = self.workspace_dir / "memory" / "pangu_queue.json"
@@ -300,6 +304,837 @@ class DashboardDataService:
     def _write_json(self, path: Path, payload: Any) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _get_ui_layouts_doc(self) -> dict[str, Any]:
+        doc = self._load_json(self.ui_layouts_path, {})
+        if not isinstance(doc, dict):
+            doc = {}
+        doc.setdefault("architecture", {"positions": {}, "updated_at": None})
+        doc.setdefault("inter_team_flow", {"positions": {}, "updated_at": None})
+        return doc
+
+    def _save_ui_layouts_doc(self, doc: dict[str, Any]) -> None:
+        self._write_json(self.ui_layouts_path, doc)
+
+    def get_graph_layout(self, kind: str) -> dict[str, Any]:
+        doc = self._get_ui_layouts_doc()
+        key = "inter_team_flow" if kind == "inter_team_flow" else "architecture"
+        payload = doc.get(key) or {}
+        positions = payload.get("positions") if isinstance(payload.get("positions"), dict) else {}
+        return {
+            "kind": key,
+            "positions": positions,
+            "updated_at": payload.get("updated_at"),
+        }
+
+    def save_graph_layout(self, kind: str, payload: dict[str, Any] | None) -> dict[str, Any]:
+        key = "inter_team_flow" if kind == "inter_team_flow" else "architecture"
+        doc = self._get_ui_layouts_doc()
+        incoming = payload or {}
+        positions = incoming.get("positions") if isinstance(incoming.get("positions"), dict) else {}
+        sanitized: dict[str, dict[str, int]] = {}
+        for node_id, point in positions.items():
+            if not isinstance(point, dict):
+                continue
+            try:
+                x = int(point.get("x", 0))
+                y = int(point.get("y", 0))
+            except Exception:
+                continue
+            sanitized[str(node_id)] = {"x": x, "y": y}
+        doc[key] = {
+            "positions": sanitized,
+            "updated_at": now_iso(),
+        }
+        self._save_ui_layouts_doc(doc)
+        return self.get_graph_layout(key)
+
+    def _normalize_graph_kind(self, kind: str | None) -> str:
+        raw = str(kind or "").strip().lower().replace("_", "-")
+        if raw in {"architecture", "default"}:
+            return "architecture"
+        if raw in {"inter-team-flow", "interteamflow", "inter-team", "inter-team-flow-default"}:
+            return "inter-team-flow"
+        if raw in {"team-workflow", "teamworkflow", "team-workflow-default"}:
+            return "team-workflow"
+        return raw
+
+    def _graph_change_target_kind(self, kind: str) -> str:
+        return {
+            "architecture": "architecture",
+            "inter-team-flow": "inter_team_flow",
+            "team-workflow": "team_workflow",
+        }.get(self._normalize_graph_kind(kind), self._normalize_graph_kind(kind).replace("-", "_"))
+
+    def _architecture_graph_doc(self) -> dict[str, Any]:
+        doc = self._load_json(self.architecture_graph_path, {})
+        if not isinstance(doc, dict):
+            doc = {}
+        doc.setdefault("version", "arch-v1")
+        doc.setdefault("updated_at", None)
+        doc.setdefault("updated_by", None)
+        doc.setdefault("edges", [])
+        doc.setdefault("versions", [])
+        return doc
+
+    def _save_architecture_graph_doc(self, doc: dict[str, Any]) -> None:
+        self._write_json(self.architecture_graph_path, doc)
+
+    def _inter_team_flows_doc(self) -> dict[str, Any]:
+        doc = self._load_json(self.inter_team_flows_path, {})
+        if not isinstance(doc, dict):
+            doc = {}
+        doc.setdefault("version", "inter-team-v1")
+        doc.setdefault("updated_at", None)
+        doc.setdefault("updated_by", None)
+        doc.setdefault("flows", {})
+        if "inter-team:default" not in doc["flows"]:
+            doc["flows"]["inter-team:default"] = {
+                "flow_id": "inter-team:default",
+                "flow_name": "全局团队协作主流程",
+                "teams": [],
+                "entry_teams": [],
+                "terminal_teams": [],
+                "handoff_edges": [],
+                "metadata": {},
+                "versions": [],
+            }
+        return doc
+
+    def _save_inter_team_flows_doc(self, doc: dict[str, Any]) -> None:
+        self._write_json(self.inter_team_flows_path, doc)
+
+    def _next_version_id(self, prefix: str) -> str:
+        return f"{prefix}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+    def _edge_signature(self, kind: str, edge: dict[str, Any]) -> tuple[str, str, str]:
+        normalized = self._normalize_graph_kind(kind)
+        src = str(edge.get("from") or "").strip()
+        dst = str(edge.get("to") or "").strip()
+        if normalized == "architecture":
+            edge_type = str(edge.get("type") or "").strip()
+        elif normalized == "inter-team-flow":
+            edge_type = str(edge.get("handoffType") or edge.get("handoff_type") or "normal").strip()
+        else:
+            edge_type = str(edge.get("transitionType") or edge.get("transition_type") or "normal").strip()
+        return (src, dst, edge_type)
+
+    def _graph_diff_summary(self, kind: str, current_graph: dict[str, Any], draft_graph: dict[str, Any]) -> dict[str, Any]:
+        current_edges = {self._edge_signature(kind, edge) for edge in list(current_graph.get("edges") or [])}
+        draft_edges = {self._edge_signature(kind, edge) for edge in list(draft_graph.get("edges") or [])}
+        added = sorted(draft_edges - current_edges)
+        removed = sorted(current_edges - draft_edges)
+        return {
+            "added_edges": [
+                {"from": src, "to": dst, "type": edge_type}
+                for src, dst, edge_type in added
+            ],
+            "removed_edges": [
+                {"from": src, "to": dst, "type": edge_type}
+                for src, dst, edge_type in removed
+            ],
+            "node_count": len(list(draft_graph.get("nodes") or [])),
+            "edge_count": len(list(draft_graph.get("edges") or [])),
+            "summary_text": f"新增 {len(added)} 条，删除 {len(removed)} 条，当前共 {len(list(draft_graph.get('edges') or []))} 条关系",
+        }
+
+    def _latest_graph_change(self, kind: str, target_id: str | None) -> dict[str, Any] | None:
+        expected_kind = self._graph_change_target_kind(kind)
+        for change in self._task_repo.list_change_tasks():
+            if str(change.get("target_kind") or "") != expected_kind:
+                continue
+            if str(change.get("target_id") or "") != str(target_id or ""):
+                continue
+            return change
+        return None
+
+    def _graph_change_view(self, change: dict[str, Any] | None) -> dict[str, Any] | None:
+        if not change:
+            return None
+        return {
+            "change_id": str(change.get("change_id") or ""),
+            "title": str(change.get("title") or ""),
+            "target_kind": str(change.get("target_kind") or ""),
+            "target_id": str(change.get("target_id") or ""),
+            "requested_by": str(change.get("requested_by") or change.get("created_by") or ""),
+            "implementation_owner": str(change.get("implementation_owner") or ""),
+            "implementation_status": str(change.get("implementation_status") or ""),
+            "implementation_summary": str(change.get("implementation_summary") or ""),
+            "implementation_dispatch_status": str(change.get("implementation_dispatch_status") or ""),
+            "implementation_dispatch_requested_at": str(change.get("implementation_dispatch_requested_at") or ""),
+            "updated_at": str(change.get("updated_at") or ""),
+            "diff_summary": dict(change.get("diff_summary") or {}),
+            "draft_graph": dict(change.get("draft_graph") or {}) if isinstance(change.get("draft_graph"), dict) else None,
+            "implementation_result_graph": dict(change.get("implementation_result_graph") or {})
+            if isinstance(change.get("implementation_result_graph"), dict)
+            else None,
+        }
+
+    def _fallback_team_workflow_graph(self, target_id: str) -> dict[str, Any]:
+        states = list((self.TEAM_DEFS.get(target_id) or {}).get("workflow") or [])
+        nodes: list[dict[str, Any]] = []
+        edges: list[dict[str, Any]] = []
+        mapping = self.TEAM_STAGE_ROLE_MAP.get(target_id, {})
+        for index, state_id in enumerate(states):
+            role, candidates = mapping.get(state_id, ("Executor", tuple()))
+            row = index // 4
+            col = index % 4
+            nodes.append(
+                {
+                    "id": state_id,
+                    "label": state_id,
+                    "unifiedState": "DONE" if state_id == "DONE" else "RUNNING",
+                    "role": role,
+                    "description": "",
+                    "x": 56 + col * 240,
+                    "y": 54 + row * 168,
+                    "heartbeatInterval": 120,
+                    "heartbeatTimeout": 300,
+                    "isStart": index == 0,
+                    "isTerminal": index == len(states) - 1,
+                    "defaultAgents": list(candidates),
+                }
+            )
+            if index + 1 < len(states):
+                nxt = states[index + 1]
+                edges.append(
+                    {
+                        "key": f"{state_id}->{nxt}",
+                        "from": state_id,
+                        "to": nxt,
+                        "transitionType": "normal",
+                        "condition": "通过",
+                        "requiresConfirmation": False,
+                    }
+                )
+        return {
+            "targetId": target_id,
+            "nodes": nodes,
+            "edges": edges,
+            "startNodeId": states[0] if states else None,
+            "terminalNodes": [states[-1]] if states else [],
+            "defaults": {"intervalSeconds": 120, "timeoutThresholdSeconds": 300},
+            "version": "1.0.0",
+            "lastPublishedAt": None,
+        }
+
+    def _build_team_workflow_graph(self, target_id: str) -> dict[str, Any]:
+        doc = self._team_state_machines_doc()
+        machines = doc.get("team_state_machines") if isinstance(doc.get("team_state_machines"), dict) else {}
+        machine = dict(machines.get(target_id) or {})
+        if not machine:
+            return self._fallback_team_workflow_graph(target_id)
+        base_states = list(machine.get("internal_states") or [])
+        mapping = dict(machine.get("mapping_to_unified") or {})
+        transitions = dict(machine.get("transitions") or {})
+        node_meta = dict(machine.get("node_meta") or {})
+        transition_meta = dict(machine.get("transition_meta") or {})
+        heartbeat = dict(machine.get("heartbeat_requirements") or {})
+        referenced = []
+        seen_states: set[str] = set()
+        for state_id in base_states:
+            sid = str(state_id)
+            if sid not in seen_states:
+                seen_states.add(sid)
+                referenced.append(sid)
+        for src, dsts in transitions.items():
+            sid = str(src)
+            if sid not in seen_states:
+                seen_states.add(sid)
+                referenced.append(sid)
+            for dst in list(dsts or []):
+                did = str(dst)
+                if did not in seen_states:
+                    seen_states.add(did)
+                    referenced.append(did)
+        if not referenced:
+            return self._fallback_team_workflow_graph(target_id)
+        start_node_id = str(machine.get("start_node_id") or referenced[0])
+        terminal_nodes = list(machine.get("terminal_nodes") or [])
+        if not terminal_nodes:
+            terminal_nodes = [referenced[-1]]
+        nodes: list[dict[str, Any]] = []
+        for index, state_id in enumerate(referenced):
+            meta = dict(node_meta.get(state_id) or {})
+            position = dict(meta.get("position") or {})
+            role, candidates = self.TEAM_STAGE_ROLE_MAP.get(target_id, {}).get(state_id, ("Executor", tuple()))
+            nodes.append(
+                {
+                    "id": state_id,
+                    "label": state_id,
+                    "unifiedState": str(mapping.get(state_id) or ("DONE" if state_id == "DONE" else "RUNNING")),
+                    "role": str(meta.get("role") or role),
+                    "description": str(meta.get("description") or ""),
+                    "x": int(position.get("x") if isinstance(position.get("x"), (int, float)) else 56 + (index % 4) * 240),
+                    "y": int(position.get("y") if isinstance(position.get("y"), (int, float)) else 54 + (index // 4) * 168),
+                    "heartbeatInterval": int(meta.get("heartbeat_interval_seconds") or heartbeat.get("interval_seconds") or 120),
+                    "heartbeatTimeout": int(meta.get("heartbeat_timeout_seconds") or heartbeat.get("timeout_threshold_seconds") or 300),
+                    "isStart": state_id == start_node_id,
+                    "isTerminal": state_id in terminal_nodes,
+                    "defaultAgents": list(candidates),
+                }
+            )
+        edges: list[dict[str, Any]] = []
+        for src, dsts in transitions.items():
+            for dst in list(dsts or []):
+                key = f"{src}->{dst}"
+                meta = dict(transition_meta.get(key) or {})
+                edges.append(
+                    {
+                        "key": key,
+                        "from": str(src),
+                        "to": str(dst),
+                        "transitionType": str(meta.get("transition_type") or "normal"),
+                        "condition": str(meta.get("condition") or "通过"),
+                        "requiresConfirmation": bool(meta.get("requires_confirmation")),
+                    }
+                )
+        return {
+            "targetId": target_id,
+            "nodes": nodes,
+            "edges": edges,
+            "startNodeId": start_node_id,
+            "terminalNodes": terminal_nodes,
+            "defaults": {
+                "intervalSeconds": int(heartbeat.get("interval_seconds") or 120),
+                "timeoutThresholdSeconds": int(heartbeat.get("timeout_threshold_seconds") or 300),
+            },
+            "version": str(doc.get("version") or "1.0.0"),
+            "lastPublishedAt": ((doc.get("metadata") or {}).get("last_published_at") if isinstance(doc.get("metadata"), dict) else None),
+        }
+
+    def _serialize_team_workflow_graph(self, target_id: str, graph: dict[str, Any]) -> dict[str, Any]:
+        doc = self._team_state_machines_doc()
+        if not isinstance(doc, dict):
+            doc = {}
+        doc.setdefault("version", "1.0.0")
+        doc.setdefault("metadata", {})
+        doc.setdefault("team_state_machines", {})
+        machine = dict(doc["team_state_machines"].get(target_id) or {})
+        nodes = list(graph.get("nodes") or [])
+        edges = list(graph.get("edges") or [])
+        machine["internal_states"] = [str(node.get("id") or "") for node in nodes if str(node.get("id") or "").strip()]
+        machine["mapping_to_unified"] = {}
+        machine["node_meta"] = {}
+        machine["transition_meta"] = {}
+        transitions: dict[str, list[str]] = {}
+        for node in nodes:
+            node_id = str(node.get("id") or "").strip()
+            if not node_id:
+                continue
+            machine["mapping_to_unified"][node_id] = str(node.get("unifiedState") or "RUNNING")
+            machine["node_meta"][node_id] = {
+                "position": {
+                    "x": int(node.get("x") or 0),
+                    "y": int(node.get("y") or 0),
+                },
+                "role": str(node.get("role") or ""),
+                "description": str(node.get("description") or ""),
+                "heartbeat_interval_seconds": int(node.get("heartbeatInterval") or (graph.get("defaults") or {}).get("intervalSeconds") or 120),
+                "heartbeat_timeout_seconds": int(node.get("heartbeatTimeout") or (graph.get("defaults") or {}).get("timeoutThresholdSeconds") or 300),
+            }
+        for edge in edges:
+            src = str(edge.get("from") or "").strip()
+            dst = str(edge.get("to") or "").strip()
+            if not src or not dst:
+                continue
+            transitions.setdefault(src, []).append(dst)
+            edge_key = str(edge.get("key") or f"{src}->{dst}")
+            machine["transition_meta"][edge_key] = {
+                "transition_type": str(edge.get("transitionType") or "normal"),
+                "condition": str(edge.get("condition") or "通过"),
+                "requires_confirmation": bool(edge.get("requiresConfirmation")),
+            }
+        machine["transitions"] = transitions
+        machine["start_node_id"] = str(graph.get("startNodeId") or (nodes[0].get("id") if nodes else ""))
+        machine["terminal_nodes"] = [str(item) for item in list(graph.get("terminalNodes") or [])]
+        machine["heartbeat_requirements"] = {
+            "interval_seconds": int((graph.get("defaults") or {}).get("intervalSeconds") or 120),
+            "timeout_threshold_seconds": int((graph.get("defaults") or {}).get("timeoutThresholdSeconds") or 300),
+        }
+        doc["team_state_machines"][target_id] = machine
+        return doc
+
+    def _current_architecture_graph(self) -> dict[str, Any]:
+        teams = [team for team in (self.get_teams().get("teams") or [])]
+        standalone = [agent for agent in (self.get_standalone_agents().get("agents") or [])]
+        doc = self._architecture_graph_doc()
+        explicit_edges = list(doc.get("edges") or [])
+        nodes = [
+            {"id": str(team.get("team_id") or ""), "type": "team", "name": str(team.get("team_name") or team.get("team_id") or "")}
+            for team in teams
+        ]
+        nodes.extend(
+            {
+                "id": str(agent.get("agent_id") or ""),
+                "type": "agent",
+                "name": str(agent.get("name") or agent.get("agent_id") or ""),
+            }
+            for agent in standalone
+        )
+        edges: list[dict[str, Any]] = []
+        if explicit_edges:
+            for index, edge in enumerate(explicit_edges):
+                src = str(edge.get("from") or "").strip()
+                dst = str(edge.get("to") or "").strip()
+                edge_type = str(edge.get("type") or "").strip() or "business_flow"
+                if src and dst:
+                    edges.append({"key": str(edge.get("key") or f"{src}->{dst}:{edge_type}:{index}"), "from": src, "to": dst, "type": edge_type})
+        else:
+            for edge in list((self.get_architecture().get("edges") or [])):
+                if str(edge.get("type") or "") not in {"business_flow", "standalone_collab"}:
+                    continue
+                src = str(edge.get("from") or "").strip()
+                dst = str(edge.get("to") or "").strip()
+                edge_type = str(edge.get("type") or "").strip()
+                if src and dst:
+                    edges.append({"key": f"{src}->{dst}:{edge_type}", "from": src, "to": dst, "type": edge_type})
+        if not any(edge.get("type") == "business_flow" for edge in edges):
+            default_chain = [team.get("team_id") for team in teams if str(team.get("team_id") or "") in self.ACTIVE_TEAM_IDS]
+            for index in range(len(default_chain) - 1):
+                src = str(default_chain[index] or "").strip()
+                dst = str(default_chain[index + 1] or "").strip()
+                if src and dst:
+                    edges.append({"key": f"{src}->{dst}:business_flow", "from": src, "to": dst, "type": "business_flow"})
+        known_nodes = {str(node.get("id") or "").strip() for node in nodes if str(node.get("id") or "").strip()}
+        team_ids = {str(team.get("team_id") or "").strip() for team in teams}
+        for edge in edges:
+            for node_id in [str(edge.get("from") or "").strip(), str(edge.get("to") or "").strip()]:
+                if not node_id or node_id in known_nodes:
+                    continue
+                nodes.append(
+                    {
+                        "id": node_id,
+                        "type": "team" if node_id in team_ids else "agent",
+                        "name": node_id,
+                    }
+                )
+                known_nodes.add(node_id)
+        return {
+            "targetId": "default",
+            "nodes": nodes,
+            "edges": edges,
+            "version": str(doc.get("version") or "arch-v1"),
+            "lastPublishedAt": doc.get("updated_at"),
+        }
+
+    def _current_inter_team_flow_graph(self, target_id: str = "inter-team:default") -> dict[str, Any]:
+        teams = [team for team in (self.get_teams().get("teams") or [])]
+        doc = self._inter_team_flows_doc()
+        flow = dict((doc.get("flows") or {}).get(target_id) or {})
+        nodes = [
+            {
+                "id": str(team.get("team_id") or ""),
+                "label": str(team.get("team_name") or team.get("team_id") or ""),
+                "lead": str((team.get("lead") or {}).get("name") or ""),
+            }
+            for team in teams
+        ]
+        edges: list[dict[str, Any]] = []
+        handoff_edges = list(flow.get("handoff_edges") or [])
+        if handoff_edges:
+            for index, edge in enumerate(handoff_edges):
+                src = str(edge.get("from_team") or edge.get("from") or "").strip()
+                dst = str(edge.get("to_team") or edge.get("to") or "").strip()
+                if not src or not dst:
+                    continue
+                edges.append(
+                    {
+                        "key": str(edge.get("key") or f"{src}->{dst}:{index}"),
+                        "from": src,
+                        "to": dst,
+                        "handoffType": str(edge.get("handoff_type") or edge.get("handoffType") or "normal"),
+                        "condition": str(edge.get("trigger_condition") or edge.get("condition") or "通过"),
+                        "requiresConfirmation": bool(edge.get("requires_human_confirm") or edge.get("requiresConfirmation")),
+                    }
+                )
+        else:
+            for edge in list((self.get_architecture().get("edges") or [])):
+                if str(edge.get("type") or "") != "business_flow":
+                    continue
+                src = str(edge.get("from") or "").strip()
+                dst = str(edge.get("to") or "").strip()
+                if src and dst:
+                    edges.append(
+                        {
+                            "key": f"{src}->{dst}",
+                            "from": src,
+                            "to": dst,
+                            "handoffType": "normal",
+                            "condition": "通过",
+                            "requiresConfirmation": False,
+                        }
+                    )
+        return {
+            "targetId": target_id,
+            "nodes": nodes,
+            "edges": edges,
+            "entryTeams": list(flow.get("entry_teams") or []),
+            "terminalTeams": list(flow.get("terminal_teams") or []),
+            "version": str(doc.get("version") or "inter-team-v1"),
+            "lastPublishedAt": doc.get("updated_at"),
+        }
+
+    def _validate_graph_draft(self, kind: str, draft_graph: dict[str, Any]) -> dict[str, Any]:
+        normalized = self._normalize_graph_kind(kind)
+        issues: list[str] = []
+        nodes = list(draft_graph.get("nodes") or [])
+        edges = list(draft_graph.get("edges") or [])
+        node_ids = {str(node.get("id") or "").strip() for node in nodes if str(node.get("id") or "").strip()}
+        if not node_ids:
+            issues.append("至少需要一个节点。")
+        for edge in edges:
+            src = str(edge.get("from") or "").strip()
+            dst = str(edge.get("to") or "").strip()
+            if not src or not dst or src not in node_ids or dst not in node_ids:
+                issues.append(f"存在非法连线：{src or '-'} -> {dst or '-'}")
+                continue
+            if normalized == "architecture":
+                edge_type = str(edge.get("type") or "").strip()
+                if edge_type not in {"business_flow", "standalone_collab"}:
+                    issues.append(f"架构关系 {src}->{dst} 的类型无效。")
+            elif normalized == "inter-team-flow":
+                if not str(edge.get("condition") or "").strip():
+                    issues.append(f"团队交接 {src}->{dst} 缺少条件。")
+            elif normalized == "team-workflow":
+                if not str(edge.get("condition") or "").strip():
+                    issues.append(f"角色交接 {src}->{dst} 缺少条件。")
+        if normalized == "team-workflow":
+            if not str(draft_graph.get("startNodeId") or "").strip():
+                issues.append("必须指定开始节点。")
+            if not list(draft_graph.get("terminalNodes") or []):
+                issues.append("必须至少指定一个终止节点。")
+        elif normalized == "inter-team-flow":
+            indegree = {node_id: 0 for node_id in node_ids}
+            outdegree = {node_id: 0 for node_id in node_ids}
+            for edge in edges:
+                src = str(edge.get("from") or "").strip()
+                dst = str(edge.get("to") or "").strip()
+                if src in outdegree:
+                    outdegree[src] += 1
+                if dst in indegree:
+                    indegree[dst] += 1
+            if node_ids and not any(value == 0 for value in indegree.values()):
+                issues.append("团队间流程缺少起始团队。")
+            if node_ids and not any(value == 0 for value in outdegree.values()):
+                issues.append("团队间流程缺少终止团队。")
+        return {"ok": not issues, "issues": issues, "kind": normalized}
+
+    def get_graph_edit_payload(self, kind: str, target_id: str | None) -> dict[str, Any]:
+        normalized = self._normalize_graph_kind(kind)
+        target = str(target_id or "").strip() or ("default" if normalized == "architecture" else "inter-team:default" if normalized == "inter-team-flow" else "")
+        if normalized == "architecture":
+            current_graph = self._current_architecture_graph()
+        elif normalized == "inter-team-flow":
+            current_graph = self._current_inter_team_flow_graph(target or "inter-team:default")
+        elif normalized == "team-workflow":
+            if not target:
+                return {"ok": False, "error": "target_id required"}
+            current_graph = self._build_team_workflow_graph(target)
+        else:
+            return {"ok": False, "error": "unsupported graph kind"}
+        latest_change = self._latest_graph_change(normalized, target)
+        latest_change = self._ingest_luban_graph_edit_result(normalized, target, latest_change)
+        return {
+            "ok": True,
+            "kind": normalized,
+            "target_id": target,
+            "current_graph": current_graph,
+            "draft_graph": latest_change.get("draft_graph") if isinstance(latest_change, dict) and isinstance(latest_change.get("draft_graph"), dict) else None,
+            "implementation": self._graph_change_view(latest_change),
+            "updated_at": now_iso(),
+        }
+
+    def submit_graph_edit_to_luban(
+        self,
+        kind: str,
+        target_id: str | None,
+        draft_graph: dict[str, Any] | None,
+        operator: str | None,
+    ) -> dict[str, Any]:
+        payload = self.get_graph_edit_payload(kind, target_id)
+        if not payload.get("ok"):
+            return payload
+        normalized = str(payload.get("kind") or "")
+        target = str(payload.get("target_id") or "")
+        current_graph = dict(payload.get("current_graph") or {})
+        draft = dict(draft_graph or {})
+        if not list(draft.get("nodes") or []):
+            draft["nodes"] = list(current_graph.get("nodes") or [])
+        if "edges" not in draft:
+            draft["edges"] = list(current_graph.get("edges") or [])
+        node_ids = {str(node.get("id") or "").strip() for node in list(draft.get("nodes") or []) if str(node.get("id") or "").strip()}
+        for edge in list(draft.get("edges") or []):
+            for node_id in [str(edge.get("from") or "").strip(), str(edge.get("to") or "").strip()]:
+                if not node_id or node_id in node_ids:
+                    continue
+                draft.setdefault("nodes", [])
+                draft["nodes"].append({"id": node_id, "type": "agent", "name": node_id})
+                node_ids.add(node_id)
+        validation = self._validate_graph_draft(normalized, draft)
+        if not validation.get("ok"):
+            return {"ok": False, "error": "draft invalid", "issues": validation.get("issues") or []}
+        change_id = self._generate_change_id()
+        title_map = {
+            "architecture": "架构关系调整",
+            "inter-team-flow": "团队间流程调整",
+            "team-workflow": "团队内流程调整",
+        }
+        change = {
+            "change_id": change_id,
+            "title": f"{title_map.get(normalized, '图结构调整')} · {target}",
+            "description": f"图编辑草稿提交给鲁班：{target}",
+            "scope": "shared",
+            "priority": "P2",
+            "status": "proposed",
+            "affects_scope": "new_tasks_only",
+            "impact_report": {
+                "scope": "shared",
+                "risk": "medium",
+                "affects_scope": "new_tasks_only",
+            },
+            "impact_targets": [target],
+            "at_risk_tasks": [],
+            "rollback_plan": "可回退到上一生效版本",
+            "created_by": str(operator or "dashboard-ui"),
+            "requested_by": str(operator or "dashboard-ui"),
+            "target_kind": self._graph_change_target_kind(normalized),
+            "target_id": target,
+            "draft_graph": draft,
+            "diff_summary": self._graph_diff_summary(normalized, current_graph, draft),
+            "implementation_owner": "luban",
+            "implementation_status": "pending_implementation",
+            "implementation_result_graph": None,
+            "implementation_summary": "",
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+        }
+        self._task_repo.upsert_change_task(change)
+        self._write_luban_graph_edit_request(change, operator)
+        self._append_control_audit(
+            {
+                "task_id": change_id,
+                "action": "graph_edit_submit",
+                "mode": "graph_edit",
+                "operator": str(operator or "dashboard-ui"),
+                "reason": f"{normalized}:{target}",
+                "hard_ok": True,
+                "payload_json": json.dumps({"kind": normalized, "target_id": target, "diff_summary": change["diff_summary"]}, ensure_ascii=False),
+                "created_at": now_iso(),
+            }
+        )
+        self._start_graph_edit_dispatch(change_id, operator)
+        return {
+            "ok": True,
+            "kind": normalized,
+            "target_id": target,
+            "change_id": change_id,
+            "change": self._graph_change_view(change),
+            "updated_at": now_iso(),
+        }
+
+    def get_graph_edit_implementation(self, kind: str, target_id: str | None) -> dict[str, Any]:
+        normalized = self._normalize_graph_kind(kind)
+        target = str(target_id or "").strip() or ("default" if normalized == "architecture" else "inter-team:default")
+        change = self._latest_graph_change(normalized, target)
+        change = self._ingest_luban_graph_edit_result(normalized, target, change)
+        if not change:
+            return {"ok": True, "kind": normalized, "target_id": target, "implementation": None, "updated_at": now_iso()}
+        return {"ok": True, "kind": normalized, "target_id": target, "implementation": self._graph_change_view(change), "updated_at": now_iso()}
+
+    def record_graph_edit_implementation(
+        self,
+        kind: str,
+        target_id: str | None,
+        change_id: str | None,
+        implementation_result_graph: dict[str, Any] | None,
+        implementation_summary: str | None,
+        status: str | None = "ready_for_confirm",
+    ) -> dict[str, Any]:
+        normalized = self._normalize_graph_kind(kind)
+        target = str(target_id or "").strip() or ("default" if normalized == "architecture" else "inter-team:default")
+        change = self._task_repo.get_change_task(str(change_id or ""))
+        if not change:
+            return {"ok": False, "error": "change not found"}
+        if str(change.get("target_kind") or "") != self._graph_change_target_kind(normalized) or str(change.get("target_id") or "") != target:
+            return {"ok": False, "error": "change target mismatch"}
+        change["implementation_result_graph"] = dict(implementation_result_graph or {})
+        change["implementation_summary"] = str(implementation_summary or "")
+        change["implementation_status"] = str(status or "ready_for_confirm")
+        change["updated_at"] = now_iso()
+        self._task_repo.upsert_change_task(change)
+        return {"ok": True, "change_id": str(change.get("change_id") or ""), "implementation": self._graph_change_view(change), "updated_at": now_iso()}
+
+    def _apply_architecture_graph(self, graph: dict[str, Any], operator: str | None, summary: str | None = None) -> dict[str, Any]:
+        doc = self._architecture_graph_doc()
+        version_id = self._next_version_id("arch")
+        doc.setdefault("versions", [])
+        doc["versions"].insert(
+            0,
+            {
+                "version_id": version_id,
+                "created_at": now_iso(),
+                "created_by": str(operator or "dashboard-ui"),
+                "summary": str(summary or ""),
+                "graph": dict(graph or {}),
+            },
+        )
+        doc["version"] = version_id
+        doc["updated_at"] = now_iso()
+        doc["updated_by"] = str(operator or "dashboard-ui")
+        doc["edges"] = [
+            {
+                "key": str(edge.get("key") or f"{edge.get('from')}->{edge.get('to')}:{edge.get('type') or 'business_flow'}"),
+                "from": str(edge.get("from") or ""),
+                "to": str(edge.get("to") or ""),
+                "type": str(edge.get("type") or "business_flow"),
+            }
+            for edge in list(graph.get("edges") or [])
+            if str(edge.get("from") or "").strip() and str(edge.get("to") or "").strip()
+        ]
+        self._save_architecture_graph_doc(doc)
+        return {"version_id": version_id, "updated_at": doc["updated_at"]}
+
+    def _apply_inter_team_flow_graph(self, target_id: str, graph: dict[str, Any], operator: str | None, summary: str | None = None) -> dict[str, Any]:
+        doc = self._inter_team_flows_doc()
+        flow = dict((doc.get("flows") or {}).get(target_id) or {})
+        version_id = self._next_version_id("inter-team")
+        flow.setdefault("versions", [])
+        flow["versions"].insert(
+            0,
+            {
+                "version_id": version_id,
+                "created_at": now_iso(),
+                "created_by": str(operator or "dashboard-ui"),
+                "summary": str(summary or ""),
+                "graph": dict(graph or {}),
+            },
+        )
+        flow["flow_id"] = target_id
+        flow["flow_name"] = str(flow.get("flow_name") or "全局团队协作主流程")
+        flow["teams"] = [str(node.get("id") or "") for node in list(graph.get("nodes") or []) if str(node.get("id") or "").strip()]
+        flow["entry_teams"] = list(graph.get("entryTeams") or [])
+        flow["terminal_teams"] = list(graph.get("terminalTeams") or [])
+        flow["handoff_edges"] = [
+            {
+                "key": str(edge.get("key") or f"{edge.get('from')}->{edge.get('to')}"),
+                "from_team": str(edge.get("from") or ""),
+                "to_team": str(edge.get("to") or ""),
+                "handoff_type": str(edge.get("handoffType") or "normal"),
+                "trigger_condition": str(edge.get("condition") or "通过"),
+                "requires_human_confirm": bool(edge.get("requiresConfirmation")),
+            }
+            for edge in list(graph.get("edges") or [])
+            if str(edge.get("from") or "").strip() and str(edge.get("to") or "").strip()
+        ]
+        flow.setdefault("metadata", {})
+        doc["flows"][target_id] = flow
+        doc["version"] = version_id
+        doc["updated_at"] = now_iso()
+        doc["updated_by"] = str(operator or "dashboard-ui")
+        self._save_inter_team_flows_doc(doc)
+        return {"version_id": version_id, "updated_at": doc["updated_at"]}
+
+    def _apply_team_workflow_graph(self, target_id: str, graph: dict[str, Any], operator: str | None, summary: str | None = None) -> dict[str, Any]:
+        doc = self._serialize_team_workflow_graph(target_id, graph)
+        version_id = self._next_version_id("team-workflow")
+        doc["version"] = version_id
+        doc.setdefault("metadata", {})
+        doc["metadata"]["last_published_at"] = now_iso()
+        doc["metadata"]["last_published_by"] = str(operator or "dashboard-ui")
+        versions = doc["metadata"].setdefault("team_workflow_versions", {})
+        versions.setdefault(target_id, [])
+        versions[target_id].insert(
+            0,
+            {
+                "version_id": version_id,
+                "created_at": now_iso(),
+                "created_by": str(operator or "dashboard-ui"),
+                "summary": str(summary or ""),
+                "graph": dict(graph or {}),
+            },
+        )
+        self._write_json(self.team_state_machines_path, doc)
+        return {"version_id": version_id, "updated_at": doc["metadata"]["last_published_at"]}
+
+    def confirm_graph_edit_apply(
+        self,
+        kind: str,
+        target_id: str | None,
+        change_id: str | None,
+        operator: str | None,
+    ) -> dict[str, Any]:
+        normalized = self._normalize_graph_kind(kind)
+        target = str(target_id or "").strip() or ("default" if normalized == "architecture" else "inter-team:default")
+        change = self._task_repo.get_change_task(str(change_id or ""))
+        if not change:
+            return {"ok": False, "error": "change not found"}
+        if str(change.get("target_kind") or "") != self._graph_change_target_kind(normalized) or str(change.get("target_id") or "") != target:
+            return {"ok": False, "error": "change target mismatch"}
+        if str(change.get("implementation_status") or "") != "ready_for_confirm":
+            return {"ok": False, "error": "implementation not ready for confirm"}
+        result_graph = change.get("implementation_result_graph")
+        if not isinstance(result_graph, dict) or not result_graph:
+            return {"ok": False, "error": "implementation result missing"}
+        if normalized == "architecture":
+            applied = self._apply_architecture_graph(result_graph, operator, summary=str(change.get("implementation_summary") or ""))
+        elif normalized == "inter-team-flow":
+            applied = self._apply_inter_team_flow_graph(target, result_graph, operator, summary=str(change.get("implementation_summary") or ""))
+        elif normalized == "team-workflow":
+            applied = self._apply_team_workflow_graph(target, result_graph, operator, summary=str(change.get("implementation_summary") or ""))
+        else:
+            return {"ok": False, "error": "unsupported graph kind"}
+        change["status"] = "published"
+        change["implementation_status"] = "applied"
+        change["applied_at"] = now_iso()
+        change["updated_at"] = now_iso()
+        change.setdefault("publish_audit", [])
+        change["publish_audit"].append(
+            {
+                "published_by": str(operator or "dashboard-ui"),
+                "published_at": now_iso(),
+                "versions": {"graph_version": applied.get("version_id")},
+                "target_kind": self._graph_change_target_kind(normalized),
+                "target_id": target,
+            }
+        )
+        self._task_repo.upsert_change_task(change)
+        self._append_control_audit(
+            {
+                "task_id": str(change.get("change_id") or target),
+                "action": "graph_edit_confirm_apply",
+                "mode": "graph_edit",
+                "operator": str(operator or "dashboard-ui"),
+                "reason": f"{normalized}:{target}",
+                "hard_ok": True,
+                "payload_json": json.dumps(
+                    {"kind": normalized, "target_id": target, "version_id": applied.get("version_id"), "change_id": str(change.get("change_id") or "")},
+                    ensure_ascii=False,
+                ),
+                "created_at": now_iso(),
+            }
+        )
+        refreshed = self.get_graph_edit_payload(normalized, target)
+        return {
+            "ok": True,
+            "kind": normalized,
+            "target_id": target,
+            "change_id": str(change.get("change_id") or ""),
+            "version_id": applied.get("version_id"),
+            "current_graph": refreshed.get("current_graph"),
+            "updated_at": now_iso(),
+        }
+
+    def discard_graph_edit_draft(self, kind: str, target_id: str | None) -> dict[str, Any]:
+        normalized = self._normalize_graph_kind(kind)
+        target = str(target_id or "").strip() or ("default" if normalized == "architecture" else "inter-team:default")
+        change = self._latest_graph_change(normalized, target)
+        if change and str(change.get("implementation_status") or "") == "pending_implementation":
+            change["implementation_status"] = "discarded"
+            change["status"] = "cancelled"
+            change["updated_at"] = now_iso()
+            self._task_repo.upsert_change_task(change)
+        return {"ok": True, "kind": normalized, "target_id": target, "updated_at": now_iso()}
 
     def _bootstrap_task_store(self) -> None:
         # Import legacy files once so they remain available in read-only history.
@@ -511,6 +1346,189 @@ class DashboardDataService:
         if agent_id.startswith("smart3d_"):
             return "team-smart3d"
         return None
+
+    def _agent_workspace_path(self, agent_id: str | None) -> Path | None:
+        target = str(agent_id or "").strip()
+        if not target:
+            return None
+        for agent in self._load_agents():
+            if str(agent.get("agent_id") or "") != target:
+                continue
+            workspace = str(agent.get("workspace") or "").strip()
+            if workspace:
+                return Path(workspace)
+        return None
+
+    def _luban_graph_edit_request_path(self, change_id: str | None) -> Path | None:
+        workspace = self._agent_workspace_path("luban")
+        cid = str(change_id or "").strip()
+        if not workspace or not cid:
+            return None
+        return workspace / "inbox" / "graph_edits" / f"{cid}.request.json"
+
+    def _luban_graph_edit_result_path(self, change_id: str | None) -> Path | None:
+        workspace = self._agent_workspace_path("luban")
+        cid = str(change_id or "").strip()
+        if not workspace or not cid:
+            return None
+        return workspace / "outbox" / "graph_edits" / f"{cid}.result.json"
+
+    def _should_auto_dispatch_graph_edit(self) -> bool:
+        if os.environ.get("OPENCLAW_DISABLE_GRAPH_EDIT_DISPATCH") == "1":
+            return False
+        if os.environ.get("OPENCLAW_ENABLE_GRAPH_EDIT_DISPATCH") == "1":
+            return True
+        try:
+            return self.base_dir.resolve() == DEFAULT_BASE_DIR.resolve()
+        except Exception:
+            return False
+
+    def _start_graph_edit_dispatch(self, change_id: str | None, operator: str | None = None) -> None:
+        cid = str(change_id or "").strip()
+        if not cid or not self._should_auto_dispatch_graph_edit():
+            return
+        th = threading.Thread(
+            target=self._run_graph_edit_dispatch,
+            args=(cid, operator),
+            daemon=True,
+            name=f"graph-edit-dispatch-{cid}",
+        )
+        th.start()
+
+    def _graph_edit_dispatch_prompt(self, change: dict[str, Any], request_path: Path, result_path: Path) -> str:
+        return (
+            "请处理一条图编辑实施请求。\n"
+            f"change_id: {str(change.get('change_id') or '')}\n"
+            f"target_kind: {str(change.get('target_kind') or '')}\n"
+            f"target_id: {str(change.get('target_id') or '')}\n"
+            f"request_file: {request_path}\n"
+            f"result_file: {result_path}\n"
+            "请读取 request_file 中的 draft_graph 和 diff_summary，完成实施后写 result_file。\n"
+            "result_file 必须是 JSON，至少包含 implementation_status、implementation_summary、implementation_result_graph。\n"
+            "成功时 implementation_status=ready_for_confirm；失败时 implementation_status=failed，并在 implementation_summary 中写清失败原因。"
+        )
+
+    def _run_graph_edit_dispatch(self, change_id: str | None, operator: str | None = None) -> dict[str, Any]:
+        cid = str(change_id or "").strip()
+        change = self._task_repo.get_change_task(cid)
+        if not change:
+            return {"ok": False, "error": "change not found"}
+        request_path = self._luban_graph_edit_request_path(cid)
+        result_path = self._luban_graph_edit_result_path(cid)
+        if not request_path or not request_path.exists() or not result_path:
+            change["implementation_status"] = "failed"
+            change["implementation_summary"] = "鲁班实施请求文件缺失，无法触发执行链"
+            change["implementation_dispatch_status"] = "failed"
+            change["updated_at"] = now_iso()
+            self._task_repo.upsert_change_task(change)
+            return {"ok": False, "error": "request file missing"}
+        try:
+            proc = subprocess.run(
+                [
+                    "openclaw",
+                    "agent",
+                    "--agent",
+                    "luban",
+                    "--message",
+                    self._graph_edit_dispatch_prompt(change, request_path, result_path),
+                    "--timeout",
+                    str(self.GRAPH_EDIT_DISPATCH_TIMEOUT_SECONDS),
+                    "--json",
+                ],
+                cwd=str(self.base_dir),
+                capture_output=True,
+                text=True,
+                timeout=self.GRAPH_EDIT_DISPATCH_TIMEOUT_SECONDS + 10,
+                check=True,
+            )
+            change["implementation_dispatch_status"] = "dispatched"
+            change["implementation_dispatch_requested_at"] = now_iso()
+            change["implementation_summary"] = "已触发鲁班执行链，等待实施结果回写"
+            change["updated_at"] = now_iso()
+            self._task_repo.upsert_change_task(change)
+            self._append_control_audit(
+                {
+                    "task_id": cid,
+                    "action": "graph_edit_dispatch",
+                    "mode": "graph_edit",
+                    "operator": str(operator or "dashboard-ui"),
+                    "reason": f"{str(change.get('target_kind') or '')}:{str(change.get('target_id') or '')}",
+                    "hard_ok": True,
+                    "payload_json": json.dumps({"stdout": proc.stdout, "stderr": proc.stderr}, ensure_ascii=False),
+                    "created_at": now_iso(),
+                }
+            )
+            return {"ok": True, "change_id": cid}
+        except Exception as exc:
+            change["implementation_status"] = "failed"
+            change["implementation_dispatch_status"] = "failed"
+            change["implementation_dispatch_requested_at"] = now_iso()
+            change["implementation_summary"] = f"鲁班执行触发失败: {exc}"
+            change["updated_at"] = now_iso()
+            self._task_repo.upsert_change_task(change)
+            self._append_control_audit(
+                {
+                    "task_id": cid,
+                    "action": "graph_edit_dispatch",
+                    "mode": "graph_edit",
+                    "operator": str(operator or "dashboard-ui"),
+                    "reason": f"{str(change.get('target_kind') or '')}:{str(change.get('target_id') or '')}",
+                    "hard_ok": False,
+                    "payload_json": json.dumps({"error": str(exc)}, ensure_ascii=False),
+                    "created_at": now_iso(),
+                }
+            )
+            return {"ok": False, "change_id": cid, "error": str(exc)}
+
+    def _write_luban_graph_edit_request(self, change: dict[str, Any], operator: str | None = None) -> None:
+        request_path = self._luban_graph_edit_request_path(change.get("change_id"))
+        if not request_path:
+            return
+        request_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "change_id": str(change.get("change_id") or ""),
+            "target_kind": str(change.get("target_kind") or ""),
+            "target_id": str(change.get("target_id") or ""),
+            "operator": str(operator or change.get("requested_by") or "dashboard-ui"),
+            "requested_by": str(change.get("requested_by") or change.get("created_by") or ""),
+            "implementation_owner": str(change.get("implementation_owner") or "luban"),
+            "draft_graph": dict(change.get("draft_graph") or {}) if isinstance(change.get("draft_graph"), dict) else {},
+            "diff_summary": dict(change.get("diff_summary") or {}) if isinstance(change.get("diff_summary"), dict) else {},
+            "created_at": str(change.get("created_at") or now_iso()),
+            "updated_at": now_iso(),
+        }
+        request_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _ingest_luban_graph_edit_result(self, kind: str, target_id: str | None, change: dict[str, Any] | None) -> dict[str, Any] | None:
+        if not isinstance(change, dict):
+            return change
+        if str(change.get("implementation_status") or "") != "pending_implementation":
+            return change
+        result_path = self._luban_graph_edit_result_path(change.get("change_id"))
+        if not result_path or not result_path.exists():
+            return change
+        try:
+            payload = json.loads(result_path.read_text(encoding="utf-8"))
+        except Exception:
+            return change
+        graph = payload.get("implementation_result_graph")
+        if not isinstance(graph, dict):
+            return change
+        status = str(payload.get("implementation_status") or "ready_for_confirm")
+        summary = str(payload.get("implementation_summary") or "")
+        self.record_graph_edit_implementation(
+            kind=kind,
+            target_id=target_id,
+            change_id=str(change.get("change_id") or ""),
+            implementation_result_graph=graph,
+            implementation_summary=summary,
+            status=status,
+        )
+        try:
+            result_path.unlink()
+        except Exception:
+            pass
+        return self._task_repo.get_change_task(str(change.get("change_id") or ""))
 
     def _is_team_retired(self, team_id: str | None) -> bool:
         return str(team_id or "") in self.RETIRED_TEAM_IDS
@@ -902,6 +1920,190 @@ class DashboardDataService:
             return {"state": "idle", "hint": "standby"}
 
         return {"state": "unknown", "hint": "unknown"}
+
+    def _closure_fields(
+        self,
+        task: dict[str, Any],
+        summary: dict[str, Any],
+        health: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        status = str(summary.get("status") or "")
+        task_type = str(summary.get("task_type") or task.get("task_type") or "")
+        created_by = str(summary.get("created_by") or task.get("created_by") or "")
+        owner = str(summary.get("owner") or "")
+        next_owner = str(
+            summary.get("next_agent")
+            or ((task.get("next_action") or {}).get("assignee"))
+            or ""
+        )
+
+        def result(
+            closure_state: str,
+            closure_reason: str,
+            action: str = "",
+            recommended_owner: str = "",
+            requires_manual_confirm: bool = False,
+            recovery_reason: str = "",
+            recovery_priority: str = "",
+        ) -> dict[str, Any]:
+            return {
+                "closure_state": closure_state,
+                "closure_reason": closure_reason,
+                "next_recommended_action": action,
+                "next_recommended_owner": recommended_owner,
+                "requires_manual_confirm": bool(requires_manual_confirm),
+                "recovery_reason": recovery_reason,
+                "recovery_priority": recovery_priority,
+            }
+
+        business_input_request = task.get("business_input_request") if isinstance(task.get("business_input_request"), dict) else {}
+        if business_input_request and str(business_input_request.get("state") or "pending") == "pending":
+            requested_from = str(business_input_request.get("requested_from") or created_by or owner or "")
+            missing_inputs = str(business_input_request.get("missing_inputs") or "").strip()
+            reason = f"等待 {requested_from or '发起方'} 补充业务输入"
+            if missing_inputs:
+                reason = f"{reason}：{missing_inputs}"
+            return result(
+                "waiting_input",
+                reason,
+                "",
+                requested_from,
+                False,
+                "business input pending",
+                "medium",
+            )
+
+        if task_type == "review_task":
+            review = self._refresh_review_status_fields(task)
+            packets = list(review.get("review_packets") or [])
+            missing = list(review.get("packet_missing") or [])
+            chief = dict(review.get("chief_decision") or {})
+            review_status = str(review.get("status") or status or "pending")
+            if chief.get("decision"):
+                return result(
+                    "done",
+                    f"Chief 已给出裁决：{chief.get('decision')}",
+                    "",
+                    str(chief.get("next_owner") or ""),
+                    False,
+                )
+            if missing:
+                return result(
+                    "waiting_review",
+                    f"等待 reviewer packet：{', '.join(missing)}",
+                    "redispatch_reviewer",
+                    "braintrust_chief",
+                    False,
+                    "review packets missing",
+                    "medium",
+                )
+            if packets and not chief.get("decision"):
+                return result(
+                    "waiting_confirm",
+                    "reviewer packet 已齐，等待 chief 裁决",
+                    "submit_chief_decision",
+                    "braintrust_chief",
+                    True,
+                    "chief pending",
+                    "medium",
+                )
+            if review_status == "stalled":
+                return result(
+                    "blocked",
+                    "审查已停滞，建议回收到恢复治理",
+                    "reclaim_review",
+                    "luban",
+                    False,
+                    "review stalled",
+                    "high",
+                )
+            return result("ready", "审查可继续推进", "", "braintrust_chief", False)
+
+        if task_type == "change_task":
+            approval = dict(task.get("approval") or {})
+            publish_audit = list(task.get("publish_audit") or [])
+            change_status = str(task.get("status") or status or "proposed")
+            if publish_audit or change_status == "published":
+                return result("done", "变更已发布", "", "", False)
+            if approval:
+                return result("ready", "审批已完成，等待发布", "publish_change", "luban", False)
+            return result("waiting_confirm", "等待变更审批", "approve_change", "braintrust_chief", False)
+
+        if summary.get("business_bound") and not str(summary.get("business_truth_source") or "").strip():
+            return result(
+                "blocked",
+                "缺少业务真相源，当前不应继续推进到业务完成",
+                "request_business_input",
+                created_by or owner,
+                True,
+            )
+        if summary.get("business_bound") and not str(summary.get("acceptance_result") or "").strip():
+            return result(
+                "waiting_input",
+                "缺少业务验收结果，当前应等待输入或验收确认",
+                "request_business_input",
+                created_by or owner,
+                True,
+            )
+        rework_assignment = task.get("rework_assignment") if isinstance(task.get("rework_assignment"), dict) else {}
+        if rework_assignment and str(rework_assignment.get("owner") or "").strip():
+            rework_owner = str(rework_assignment.get("owner") or "").strip()
+            rework_reason = str(rework_assignment.get("reason") or "").strip()
+            return result(
+                "rework",
+                f"已回退给 {rework_owner} 返工{f'：{rework_reason}' if rework_reason else ''}",
+                "",
+                rework_owner,
+                False,
+            )
+        if str(summary.get("gate_result") or "").upper() == "REWORK":
+            return result(
+                "rework",
+                "Gate 已要求返工，建议回退给返工责任人",
+                "return_to_rework_owner",
+                next_owner or owner or created_by,
+                True,
+            )
+        if owner in {"", "unassigned", "none", "null"}:
+            return result(
+                "blocked",
+                "当前没有责任人，任务无法继续推进",
+                "assign_owner",
+                str(task.get("team") or summary.get("team") or ""),
+                True,
+            )
+        if health and (health.get("is_stalled") or health.get("status") == "stale"):
+            return result(
+                "blocked",
+                "任务长时间没有运行信号，建议进入恢复或重启",
+                "restart_task",
+                owner,
+                False,
+                "runtime stalled",
+                "high",
+            )
+        if status == "completed":
+            return result("done", "任务已完成", "", "", False)
+        handoff_state = task.get("handoff_state") if isinstance(task.get("handoff_state"), dict) else {}
+        if handoff_state and str(handoff_state.get("next_owner") or "").strip() and status in {"pending", "in_progress"}:
+            return result(
+                "ready",
+                f"交接已确认，等待 {str(handoff_state.get('next_owner') or '').strip()} 接手",
+                "",
+                str(handoff_state.get("next_owner") or "").strip(),
+                False,
+            )
+        if next_owner and status in {"pending", "in_progress"}:
+            return result(
+                "ready_for_handoff",
+                f"已识别下一接手人 {next_owner}，建议确认交接",
+                "confirm_handoff",
+                next_owner,
+                True,
+            )
+        if status == "in_progress":
+            return result("running", "任务正在推进", "", owner, False)
+        return result("ready", "任务可继续推进", "", owner, False)
 
     def _summarize_task(self, task: dict[str, Any]) -> dict[str, Any]:
         execution = task.get("execution") or {}
@@ -2531,6 +3733,82 @@ class DashboardDataService:
         self._task_repo.upsert_review_task(review)
         return {"ok": True, "review_id": review_id, "audit": audit, "review": self._review_view_model(review, detail=True), "updated_at": now_iso()}
 
+    def apply_recommended_action(self, task_id: str | None, actor_id: str | None, actor_role: str | None) -> dict[str, Any]:
+        if not task_id:
+            return {"ok": False, "error": "task_id required"}
+
+        detail = self.get_task_detail(task_id)
+        if detail.get("error"):
+            return {"ok": False, "error": detail.get("error")}
+
+        action = str(detail.get("next_recommended_action") or "").strip()
+        if not action:
+            return {"ok": False, "error": "no recommended action"}
+        if detail.get("requires_manual_confirm"):
+            return {"ok": False, "error": "manual confirmation required"}
+
+        operator = str(actor_id or "dashboard-ui")
+        operator_role = self._normalize_actor_role(actor_role)
+
+        if action == "restart_task":
+            result = self.control_task(
+                task_id=task_id,
+                action="restart",
+                operator=operator,
+                reason="apply_recommended_action",
+                async_mode=False,
+                operator_role=operator_role,
+            )
+            return {
+                "ok": bool(result.get("ok")),
+                "task_id": task_id,
+                "applied_action": action,
+                "result": result,
+                "updated_at": now_iso(),
+            }
+
+        if action == "redispatch_reviewer":
+            result = self.dispatch_review_task(task_id, operator, operator_role)
+            return {
+                "ok": bool(result.get("ok")),
+                "task_id": task_id,
+                "applied_action": action,
+                "result": result,
+                "updated_at": now_iso(),
+            }
+
+        if action == "reclaim_review":
+            result = self.recover_review_task(task_id, operator, operator_role, action="reclaim")
+            return {
+                "ok": bool(result.get("ok")),
+                "task_id": task_id,
+                "applied_action": action,
+                "result": result,
+                "updated_at": now_iso(),
+            }
+
+        if action == "approve_change":
+            result = self.approve_change_task(task_id, operator, operator_role)
+            return {
+                "ok": bool(result.get("ok")),
+                "task_id": task_id,
+                "applied_action": action,
+                "result": result,
+                "updated_at": now_iso(),
+            }
+
+        if action == "publish_change":
+            result = self.publish_change_task(task_id, operator, operator_role)
+            return {
+                "ok": bool(result.get("ok")),
+                "task_id": task_id,
+                "applied_action": action,
+                "result": result,
+                "updated_at": now_iso(),
+            }
+
+        return {"ok": False, "error": f"recommended action {action} requires manual flow"}
+
     def get_tasks(
         self,
         status_filter: str | None = None,
@@ -2538,6 +3816,8 @@ class DashboardDataService:
         owner: str | None = None,
         dispatch_state: str | None = None,
         task_pool: str | None = None,
+        team_focus: str | None = None,
+        inter_team_flow: str | None = None,
         include_history: bool = False,
         since: str | None = None,
         limit: int | None = None,
@@ -2579,11 +3859,28 @@ class DashboardDataService:
             t["runtime_state"] = rt["state"]
             t["runtime_hint"] = rt["hint"]
             t["live_freshness"] = live_freshness
+            t.update(self._closure_fields(t.get("_raw") or {}, t, health))
+            t["inter_team_flow_ref"] = "inter-team:default" if (t.get("team") and (t.get("team_flow") or [])) else ""
             t.pop("_raw", None)
+
+        focus = str(team_focus or "").strip().lower()
+        if inter_team_flow:
+            tasks = [t for t in tasks if str(t.get("inter_team_flow_ref") or "") == str(inter_team_flow)]
+        if focus:
+            def _match_team_focus(item: dict[str, Any]) -> bool:
+                closure_state = str(item.get("closure_state") or "")
+                if focus == "blocked":
+                    return str(item.get("runtime_state") or "") == "stalled" or closure_state in {"blocked", "rework"}
+                if focus == "handoff":
+                    return closure_state == "ready_for_handoff"
+                if focus == "recovery":
+                    return bool(item.get("recovery_reason") or item.get("recovery_priority"))
+                return True
+            tasks = [t for t in tasks if _match_team_focus(t)]
 
         return {
             "tasks": tasks,
-            "total": total,
+            "total": len(tasks) if (focus or inter_team_flow) else total,
             "limit": safe_limit,
             "offset": safe_offset,
             "next_since": next_since,
@@ -2602,7 +3899,8 @@ class DashboardDataService:
             if not review:
                 return {"error": "Task not found"}
             packets = self._task_repo.list_review_packets(task_id)
-            return {
+            review_payload = self._refresh_review_status_fields({"review_id": task_id, **review, "review_packets": packets})
+            detail = {
                 "task_id": str(review.get("review_id") or task_id),
                 "task_name": str(review.get("title") or task_id),
                 "task_type": "review_task",
@@ -2643,12 +3941,26 @@ class DashboardDataService:
                 "data_quality": {"file_conflict": {"has_conflict": False, "count": 0, "items": []}, "is_legacy": False},
                 "raw": {
                     "routing": None,
-                    "review": self._refresh_review_status_fields({"review_id": task_id, **review, "review_packets": packets}),
+                    "review": review_payload,
                     "learning": None,
                     "acceptance": None,
                     "dispatch_suggestion": None,
                 },
             }
+            detail.update(
+                self._closure_fields(
+                    review_payload,
+                    {
+                        "task_id": detail["task_id"],
+                        "task_type": "review_task",
+                        "status": detail["status"],
+                        "owner": detail["owner"],
+                        "created_by": detail["created_by"],
+                        "next_agent": detail["next_agent"],
+                    },
+                )
+            )
+            return detail
 
         summary = self._summarize_task(match)
         runtime = self._build_agent_runtime(non_blocking=True)
@@ -2759,8 +4071,192 @@ class DashboardDataService:
                 "acceptance": match.get("acceptance"),
                 "dispatch_suggestion": match.get("dispatch_suggestion"),
             },
+            "inter_team_flow_ref": "inter-team:default" if summary["team_flow"] else "",
+            "current_team_node": str(summary["team"] or ""),
+            "next_team": str(summary["team_flow"][1] if len(summary["team_flow"]) > 1 else ""),
+            "task_team_filter_link": f"task_dashboard.html?team={quote(str(summary['team']))}" if summary.get("team") else "",
         }
+        detail.update(self._closure_fields(match, summary, agent_health))
         return detail
+
+    def _append_manual_closure_audit(
+        self,
+        task_id: str,
+        actor_id: str | None,
+        action: str,
+        result_summary: str,
+        payload: dict[str, Any] | None = None,
+    ) -> None:
+        self._append_control_audit(
+            {
+                "ts": now_iso(),
+                "task_id": task_id,
+                "action": action,
+                "mode": "manual_closure",
+                "operator": actor_id or "dashboard-ui",
+                "reason": "manual_closure",
+                "result_summary": result_summary,
+                "payload": payload or {},
+            }
+        )
+
+    def request_business_input(
+        self,
+        task_id: str | None,
+        actor_id: str | None,
+        actor_role: str | None,
+        requested_from: str | None,
+        missing_inputs: str | None,
+        note: str | None = None,
+    ) -> dict[str, Any]:
+        if not task_id:
+            return {"ok": False, "error": "task_id required"}
+        requester = str(requested_from or "").strip()
+        missing = str(missing_inputs or "").strip()
+        if not requester or not missing:
+            return {"ok": False, "error": "requested_from and missing_inputs required"}
+        with self._task_op_lock:
+            task = self._get_task_by_id(task_id)
+            if not task:
+                return {"ok": False, "error": "task not found"}
+            if not self._can_manage_task(actor_id, actor_role, str(task.get("team") or "")):
+                return {"ok": False, "error": "permission denied"}
+            execution = task.setdefault("execution", {})
+            execution["status"] = "pending"
+            task["status"] = "pending"
+            task["business_input_request"] = {
+                "requested_from": requester,
+                "missing_inputs": missing,
+                "note": str(note or "").strip(),
+                "requested_at": now_iso(),
+                "requested_by": str(actor_id or "dashboard-ui"),
+                "state": "pending",
+            }
+            task["updated_at"] = now_iso()
+            persisted = self._persist_task_payload(task, dispatch_state=str(task.get("dispatch_state") or "dispatched"), source_type="api")
+            self._task_repo.add_event(
+                task_id=task_id,
+                event_type="business_input_requested",
+                actor_id=actor_id,
+                actor_role=self._normalize_actor_role(actor_role),
+                payload=task["business_input_request"],
+            )
+            self._task_sync_cache["ts"] = time.time()
+        summary = f"requested_from={requester}; missing_inputs={missing}"
+        self._append_manual_closure_audit(task_id, actor_id, "request_business_input", summary, task.get("business_input_request"))
+        return {"ok": True, "task_id": task_id, "result_summary": summary, "task": self._summarize_task(persisted), "updated_at": now_iso()}
+
+    def assign_owner(
+        self,
+        task_id: str | None,
+        actor_id: str | None,
+        actor_role: str | None,
+        assigned_to: str | None,
+        assigned_team: str | None = None,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        result = self.assign_task(
+            task_id=task_id,
+            assigned_to=assigned_to,
+            actor_id=actor_id,
+            actor_role=actor_role,
+            assigned_team=assigned_team,
+            reason=reason or "manual_closure_assign_owner",
+            force=True,
+        )
+        if not result.get("ok"):
+            return result
+        summary = f"assigned_to={assigned_to}; assigned_team={assigned_team or ''}"
+        self._append_manual_closure_audit(str(task_id), actor_id, "assign_owner", summary, {"assigned_to": assigned_to, "assigned_team": assigned_team, "reason": reason})
+        return {**result, "result_summary": summary}
+
+    def confirm_handoff(
+        self,
+        task_id: str | None,
+        actor_id: str | None,
+        actor_role: str | None,
+        handoff_note: str | None,
+        artifact_summary: str | None,
+        next_owner: str | None,
+        stage_id: int | str | None = None,
+    ) -> dict[str, Any]:
+        if not task_id:
+            return {"ok": False, "error": "task_id required"}
+        stage_to_use = stage_id
+        if stage_to_use in {None, "", 0, "0"}:
+            detail = self.get_task_detail(task_id)
+            stage_to_use = int(detail.get("current_stage_index") or 0) + 1
+        result = self.handoff_stage(
+            task_id=task_id,
+            stage_id=stage_to_use,
+            actor_id=actor_id,
+            actor_role=actor_role,
+            handoff_note=handoff_note,
+            artifact_summary=artifact_summary,
+            next_owner=next_owner,
+        )
+        if not result.get("ok"):
+            return result
+        with self._task_op_lock:
+            task = self._get_task_by_id(task_id)
+            if isinstance(task, dict):
+                task["handoff_state"] = {
+                    "confirmed_at": now_iso(),
+                    "confirmed_by": str(actor_id or "dashboard-ui"),
+                    "next_owner": str(next_owner or ""),
+                    "stage_id": int(stage_to_use or 0),
+                }
+                self._persist_task_payload(task, dispatch_state=str(task.get("dispatch_state") or "dispatched"), source_type="api")
+        summary = f"stage_id={stage_to_use}; next_owner={next_owner}"
+        self._append_manual_closure_audit(str(task_id), actor_id, "confirm_handoff", summary, {"stage_id": stage_to_use, "handoff_note": handoff_note, "artifact_summary": artifact_summary, "next_owner": next_owner})
+        return {**result, "result_summary": summary}
+
+    def return_to_rework_owner(
+        self,
+        task_id: str | None,
+        actor_id: str | None,
+        actor_role: str | None,
+        rework_owner: str | None,
+        reason: str | None,
+    ) -> dict[str, Any]:
+        if not task_id:
+            return {"ok": False, "error": "task_id required"}
+        if not rework_owner:
+            return {"ok": False, "error": "rework_owner required"}
+        result = self.assign_task(
+            task_id=task_id,
+            assigned_to=rework_owner,
+            actor_id=actor_id,
+            actor_role=actor_role,
+            assigned_team=self._team_for_agent(str(rework_owner)) or None,
+            reason=reason or "manual_closure_rework",
+            force=True,
+        )
+        if not result.get("ok"):
+            return result
+        with self._task_op_lock:
+            task = self._get_task_by_id(task_id)
+            if not isinstance(task, dict):
+                return {"ok": False, "error": "task not found after assign"}
+            task["gate_result"] = "REWORK"
+            task["rework_assignment"] = {
+                "owner": str(rework_owner),
+                "reason": str(reason or "").strip(),
+                "assigned_at": now_iso(),
+                "assigned_by": str(actor_id or "dashboard-ui"),
+            }
+            persisted = self._persist_task_payload(task, dispatch_state=str(task.get("dispatch_state") or "dispatched"), source_type="api")
+            self._task_repo.add_event(
+                task_id=task_id,
+                event_type="task_returned_to_rework",
+                actor_id=actor_id,
+                actor_role=self._normalize_actor_role(actor_role),
+                payload=task["rework_assignment"],
+            )
+            self._task_sync_cache["ts"] = time.time()
+        summary = f"rework_owner={rework_owner}; reason={str(reason or '').strip()}"
+        self._append_manual_closure_audit(str(task_id), actor_id, "return_to_rework_owner", summary, task.get("rework_assignment"))
+        return {"ok": True, "task_id": task_id, "task": self._summarize_task(persisted), "result_summary": summary, "updated_at": now_iso()}
 
     def get_stats(self, include_history: bool = False) -> dict[str, Any]:
         self._sync_tasks_to_repo()
@@ -3045,13 +4541,31 @@ class DashboardDataService:
         for (agent_id, team_id), cnt in standalone_collab.items():
             edges.append({"from": agent_id, "to": team_id, "type": "standalone_collab", "count": cnt})
 
+        doc = self._architecture_graph_doc()
+        merged_edges: list[dict[str, Any]] = []
+        seen: set[tuple[str, str, str]] = set()
+        for edge in edges + list(doc.get("edges") or []):
+            src = str(edge.get("from") or "").strip()
+            dst = str(edge.get("to") or "").strip()
+            edge_type = str(edge.get("type") or "").strip()
+            if not src or not dst or not edge_type:
+                continue
+            key = (src, dst, edge_type)
+            if key in seen:
+                continue
+            seen.add(key)
+            payload = {"from": src, "to": dst, "type": edge_type}
+            if isinstance(edge.get("count"), (int, float)):
+                payload["count"] = int(edge.get("count") or 0)
+            merged_edges.append(payload)
+
         return {
             "system_name": "OpenClaw Runtime Architecture",
             "version": "5.0-live",
             "teams": teams,
             "standalone_agents": standalone,
             "nodes": nodes,
-            "edges": edges,
+            "edges": merged_edges,
             "updated_at": now_iso(),
         }
 
@@ -3451,6 +4965,8 @@ class DashboardAPIHandler(SimpleHTTPRequestHandler):
         if path == "/api/tasks":
             status_filter = (query.get("status") or [None])[0]
             team = (query.get("team") or [None])[0]
+            team_focus = (query.get("team_focus") or [None])[0]
+            inter_team_flow = (query.get("inter_team_flow") or [None])[0]
             owner = (query.get("owner") or [None])[0]
             dispatch_state = (query.get("dispatch_state") or [None])[0]
             task_pool = (query.get("task_pool") or [None])[0]
@@ -3471,6 +4987,8 @@ class DashboardAPIHandler(SimpleHTTPRequestHandler):
                 SERVICE.get_tasks(
                     status_filter=status_filter,
                     team=team,
+                    team_focus=team_focus,
+                    inter_team_flow=inter_team_flow,
                     owner=owner,
                     dispatch_state=dispatch_state,
                     task_pool=task_pool,
@@ -3498,6 +5016,58 @@ class DashboardAPIHandler(SimpleHTTPRequestHandler):
             return self.send_json(SERVICE.get_task_pools())
         if path == "/api/recovery/scan":
             return self.send_json(SERVICE.scan_stalled_work())
+
+        m = re.fullmatch(r"/api/tasks/([^/]+)/request-business-input", path)
+        if m:
+            return self.send_json(
+                SERVICE.request_business_input(
+                    task_id=unquote(m.group(1)),
+                    actor_id=payload.get("actor_id") or payload.get("operator"),
+                    actor_role=payload.get("actor_role") or payload.get("operator_role"),
+                    requested_from=payload.get("requested_from"),
+                    missing_inputs=payload.get("missing_inputs"),
+                    note=payload.get("note"),
+                )
+            )
+
+        m = re.fullmatch(r"/api/tasks/([^/]+)/assign-owner", path)
+        if m:
+            return self.send_json(
+                SERVICE.assign_owner(
+                    task_id=unquote(m.group(1)),
+                    actor_id=payload.get("actor_id") or payload.get("operator"),
+                    actor_role=payload.get("actor_role") or payload.get("operator_role"),
+                    assigned_to=payload.get("assigned_to"),
+                    assigned_team=payload.get("assigned_team"),
+                    reason=payload.get("reason"),
+                )
+            )
+
+        m = re.fullmatch(r"/api/tasks/([^/]+)/confirm-handoff", path)
+        if m:
+            return self.send_json(
+                SERVICE.confirm_handoff(
+                    task_id=unquote(m.group(1)),
+                    actor_id=payload.get("actor_id") or payload.get("operator"),
+                    actor_role=payload.get("actor_role") or payload.get("operator_role"),
+                    handoff_note=payload.get("handoff_note"),
+                    artifact_summary=payload.get("artifact_summary"),
+                    next_owner=payload.get("next_owner"),
+                    stage_id=payload.get("stage_id"),
+                )
+            )
+
+        m = re.fullmatch(r"/api/tasks/([^/]+)/return-to-rework-owner", path)
+        if m:
+            return self.send_json(
+                SERVICE.return_to_rework_owner(
+                    task_id=unquote(m.group(1)),
+                    actor_id=payload.get("actor_id") or payload.get("operator"),
+                    actor_role=payload.get("actor_role") or payload.get("operator_role"),
+                    rework_owner=payload.get("rework_owner"),
+                    reason=payload.get("reason"),
+                )
+            )
         if path == "/api/reviews":
             review_pool = (query.get("review_pool") or [None])[0]
             return self.send_json({"reviews": SERVICE.list_review_tasks(review_pool), "updated_at": now_iso()})

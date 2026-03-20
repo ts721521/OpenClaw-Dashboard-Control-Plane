@@ -3,24 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenClaw · 团队管理中心</title>
+  <title>OpenClaw · 团队辅助视图</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #f3f5f2;
+      --bg: #eff4ef;
       --panel: #ffffff;
-      --ink: #1f2a24;
-      --muted: #5d6c62;
-      --brand: #0f7b57;
-      --brand-2: #145a43;
-      --line: #d8dfd8;
+      --ink: #18231d;
+      --muted: #5e6f63;
+      --line: #d2ddd4;
+      --brand: #116346;
+      --brand-2: #0e4a36;
+      --accent: #bf6e1d;
+      --soft: #eef7f2;
+      --shadow: 0 12px 30px rgba(16, 35, 24, 0.1);
+      --radius: 14px;
       --ok: #0d9f58;
       --warn: #d1821e;
       --danger: #bf3d35;
-      --shadow: 0 8px 24px rgba(16, 36, 24, 0.08);
-      --radius: 14px;
     }
 
     * { box-sizing: border-box; }
@@ -30,17 +32,18 @@
       font-family: Manrope, "PingFang SC", "Microsoft YaHei", sans-serif;
       color: var(--ink);
       background:
-        radial-gradient(1200px 500px at -10% -10%, #dff0e6 0%, transparent 65%),
-        radial-gradient(1200px 500px at 120% 0%, #f7e8d8 0%, transparent 60%),
+        radial-gradient(1200px 540px at -8% -2%, #dbeee2 0%, transparent 66%),
+        radial-gradient(1000px 520px at 118% -5%, #f7ead8 0%, transparent 62%),
         var(--bg);
+      min-height: 100vh;
     }
 
     .app {
       display: grid;
       grid-template-columns: 240px minmax(0, 1fr);
+      min-height: 100vh;
       gap: 14px;
       padding: 14px;
-      min-height: 100vh;
     }
 
     .side {
@@ -57,11 +60,28 @@
       height: calc(100vh - 28px);
     }
 
-    .brand { border-bottom: 1px solid var(--line); padding-bottom: 12px; }
-    .brand h2 { margin: 0; font-size: 20px; }
-    .brand p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+    .brand {
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 12px;
+    }
 
-    .menu { display: grid; gap: 8px; }
+    .brand h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0.3px;
+    }
+
+    .brand p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .menu {
+      display: grid;
+      gap: 8px;
+    }
+
     .menu a {
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -72,145 +92,228 @@
       font-size: 13px;
       font-weight: 700;
     }
-    .menu a:hover { border-color: #8ebea4; background: #f1faf4; }
+
+    .menu a:hover {
+      border-color: #8ebea4;
+      background: #f1faf4;
+    }
+
     .menu a.active {
       border-color: #7fb497;
       background: linear-gradient(135deg, #e9f7ef 0%, #f7f6ef 100%);
       color: var(--brand);
     }
 
-    .shell {
-      max-width: 1520px;
-      margin: 0 auto;
-      padding: 24px 24px 24px 0;
+    .main {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 12px;
       min-width: 0;
     }
 
     .top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 6px;
-      background: var(--panel);
       border: 1px solid var(--line);
       border-radius: var(--radius);
+      background: var(--panel);
       box-shadow: var(--shadow);
       padding: 8px 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
     }
 
-    .title h1 { margin: 0; font-size: 18px; }
+    .top h2 {
+      margin: 0;
+      font-size: 18px;
+    }
 
-    .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    .top p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
 
     .btn {
       border: 1px solid var(--line);
-      background: #fff;
-      color: var(--ink);
-      font-weight: 700;
       border-radius: 999px;
-      padding: 10px 14px;
-      cursor: pointer;
-      text-decoration: none;
-      font-size: 13px;
-    }
-    .btn:hover { border-color: var(--brand); color: var(--brand); }
-    .btn.primary { background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff; border-color: transparent; }
-
-    .top .subnav { margin: 0; border: none; background: transparent; box-shadow: none; padding: 0; flex: 1; justify-content: center; }
-    .top .actions { margin-left: auto; }
-    .subnav {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      margin: 0 0 12px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
+      padding: 9px 14px;
       background: #fff;
-      box-shadow: var(--shadow);
-      padding: 8px;
-    }
-
-    .subnav a {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: #f8fbf9;
-      color: #355246;
-      text-decoration: none;
       font-size: 12px;
       font-weight: 800;
-      padding: 8px 12px;
+      color: var(--ink);
+      cursor: pointer;
+      text-decoration: none;
     }
 
-    .subnav a:hover { border-color: #8fc3a7; }
-    .subnav a.active {
-      border-color: #7fb497;
+    .btn:hover {
+      border-color: #8cbda2;
       color: var(--brand);
-      background: linear-gradient(130deg, #eaf8ef 0%, #f8f5eb 100%);
     }
 
-    .card {
-      background: var(--panel);
+    .btn.primary {
+      border-color: transparent;
+      color: #fff;
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .summary-card {
       border: 1px solid var(--line);
       border-radius: var(--radius);
+      background: #fff;
+      box-shadow: var(--shadow);
+      padding: 14px 16px;
+    }
+
+    .summary-card .n {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--brand);
+      line-height: 1;
+    }
+
+    .summary-card .l {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .sections {
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .section {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
       box-shadow: var(--shadow);
       overflow: hidden;
     }
 
-    .card.headline { padding: 14px 16px; border-left: 5px solid var(--brand); margin-bottom: 14px; }
-
-    .team-card {
-      border-top: 1px solid var(--line);
-      padding: 16px;
-      scroll-margin-top: 18px;
-    }
-
-    .team-card.highlight {
-      background: #eef9f3;
-      outline: 2px solid #b6dfca;
-    }
-
-    .team-row {
+    .section-head {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 12px;
-      margin-bottom: 10px;
+      flex-wrap: wrap;
     }
 
-    .team-row h3 { margin: 0; font-size: 19px; }
-
-    .tag {
-      display: inline-block;
-      font-size: 11px;
-      border-radius: 999px;
-      padding: 4px 10px;
-      font-weight: 700;
-      background: #edf4ef;
-      color: #234739;
-      border: 1px solid #c9dacd;
+    .section-head h3 {
+      margin: 0;
+      font-size: 16px;
     }
 
-    .lead { margin: 8px 0 12px; color: var(--muted); font-size: 13px; }
-
-    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 14px; }
-    .chip {
-      background: #fbf1e5;
-      color: #7b4b15;
-      border: 1px solid #f0d8ba;
+    .section-head p {
+      margin: 0;
       font-size: 12px;
-      padding: 4px 10px;
+      color: var(--muted);
+    }
+
+    .section-body {
+      padding: 12px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .team-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbf9 100%);
+      scroll-margin-top: 24px;
+    }
+
+    .team-card.highlight {
+      outline: 2px solid #9ed2b4;
+      background: linear-gradient(180deg, #eef8f2 0%, #f8fbf9 100%);
+    }
+
+    .team-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .team-top h4 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .team-id,
+    .mono {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0 12px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid #d9e3dc;
       border-radius: 999px;
+      padding: 4px 10px;
+      background: #f6faf7;
+      color: #2f473a;
+      font-size: 12px;
       font-weight: 700;
     }
 
-    .workflow { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+    .team-links {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
 
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border-top: 1px solid var(--line); padding: 10px 8px; text-align: left; font-size: 13px; }
-    th { color: var(--muted); font-size: 12px; font-weight: 700; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
 
-    .mono { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+    th, td {
+      border-top: 1px solid var(--line);
+      padding: 10px 8px;
+      text-align: left;
+      vertical-align: top;
+      font-size: 13px;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
 
     .dot {
       width: 10px;
@@ -225,18 +328,61 @@
     .dot.idle { background: var(--warn); }
     .dot.stalled { background: var(--danger); }
 
-    .empty { color: var(--muted); font-size: 13px; padding: 8px 2px; }
-
-    @media (max-width: 1100px) {
-      .app { grid-template-columns: 1fr; padding: 10px; }
-      .side { position: static; height: auto; }
-      .shell { padding: 10px 0; }
-      .top { flex-wrap: wrap; align-items: flex-start; }
-      .top .actions { margin-left: 0; }
+    .inline-list {
+      display: grid;
+      gap: 10px;
     }
 
-    @media (max-width: 680px) {
-      .shell { padding: 12px 0; }
+    .agent-row {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbf9 100%);
+    }
+
+    .agent-meta {
+      display: grid;
+      gap: 4px;
+    }
+
+    .agent-title {
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .agent-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid #d6e3d9;
+      background: #f4faf6;
+      font-size: 12px;
+      font-weight: 800;
+      color: #355246;
+      white-space: nowrap;
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 8px 2px;
+    }
+
+    @media (max-width: 1180px) {
+      .app { grid-template-columns: 1fr; padding: 10px; }
+      .side { position: static; height: auto; }
+      .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 720px) {
+      .summary { grid-template-columns: 1fr; }
+      .agent-row { grid-template-columns: 1fr; }
       th:nth-child(4), td:nth-child(4) { display: none; }
     }
   </style>
@@ -245,56 +391,72 @@
   <div class="app">
     <aside class="side">
       <div class="brand">
-        <h2>OpenClaw</h2>
+        <h1>OpenClaw</h1>
         <p>Dashboard 控制台</p>
       </div>
       <nav class="menu">
-        <a class="active" href="team_dashboard.html">团队管理中心</a>
+        <a class="active" href="team_dashboard.html">团队辅助视图</a>
         <a href="task_dashboard.html">任务管理中心</a>
         <a href="system_dashboard.html">系统架构管理中心</a>
       </nav>
     </aside>
 
-    <main class="shell">
+    <main class="main">
       <header class="top">
-        <div class="title"><h1>团队总览</h1></div>
-        <nav class="subnav">
-          <a class="active" href="team_dashboard.html">团队总览</a>
-          <a href="team_standalone.html">独立 Agent</a>
-          <a href="team_temporary.html">临时召唤</a>
-        </nav>
+        <div>
+          <h2>团队辅助视图</h2>
+          <p>这是辅助页，用来查看团队、独立 Agent、临时召唤状态；主工作面仍然是任务中心和系统架构中心。</p>
+        </div>
         <div class="actions">
+          <a class="btn" href="#teamsSection">团队总览</a>
+          <a class="btn" href="#standaloneSection">独立 Agent</a>
+          <a class="btn" href="#temporarySection">临时召唤</a>
           <button class="btn primary" id="refreshBtn">刷新</button>
         </div>
       </header>
 
-      <div class="card headline">
-        <strong>团队全览</strong>
-        <div style="font-size:12px;color:var(--muted);margin-top:6px;">更新时间：<span id="updatedAt">-</span></div>
-      </div>
+      <section class="summary" id="summaryStrip"></section>
 
-      <div class="card" id="teams"></div>
+      <div class="sections">
+        <section class="section" id="teamsSection">
+          <div class="section-head">
+            <div>
+              <h3>团队总览</h3>
+              <p>只显示团队核心职责、负责人、成员状态和当前关联任务。</p>
+            </div>
+            <div class="mono muted">更新时间：<span id="updatedAt">-</span></div>
+          </div>
+          <div class="section-body" id="teamsRoot"></div>
+        </section>
+
+        <section class="section" id="standaloneSection">
+          <div class="section-head">
+            <div>
+              <h3>独立 Agent</h3>
+              <p>展示未归属团队的独立执行单元；详细归属关系到系统架构中心查看。</p>
+            </div>
+          </div>
+          <div class="section-body" id="standaloneRoot"></div>
+        </section>
+
+        <section class="section" id="temporarySection">
+          <div class="section-head">
+            <div>
+              <h3>临时召唤</h3>
+              <p>显示当前任务流里被发现但不在正式 Agent 清单内的临时角色。</p>
+            </div>
+          </div>
+          <div class="section-body" id="temporaryRoot"></div>
+        </section>
+      </div>
     </main>
   </div>
 
   <script>
     const API = `${window.location.protocol}//${window.location.host}`;
-    const qTeam = new URLSearchParams(window.location.search).get('team');
-
+    const params = new URLSearchParams(window.location.search);
+    const qTeam = params.get('team');
     const safe = (v) => (v === null || v === undefined || v === '' ? '-' : String(v));
-
-    function statusClass(member) {
-      if (member?.health?.is_stalled) return 'stalled';
-      return member?.status === 'working' ? 'working' : 'idle';
-    }
-
-    function healthText(member) {
-      const st = member?.health?.status || 'unknown';
-      if (st === 'healthy') return '健康';
-      if (st === 'warning') return '预警';
-      if (st === 'stale') return '滞后';
-      return '未知';
-    }
 
     async function fetchJSON(path) {
       const res = await fetch(`${API}${path}`);
@@ -302,40 +464,66 @@
       return await res.json();
     }
 
+    function statusClass(item) {
+      if (item?.health?.is_stalled) return 'stalled';
+      return item?.status === 'working' ? 'working' : 'idle';
+    }
+
+    function healthText(item) {
+      const status = item?.health?.status || 'unknown';
+      if (status === 'healthy') return '健康';
+      if (status === 'warning') return '预警';
+      if (status === 'stale') return '滞后';
+      return '未知';
+    }
+
+    function renderSummary(teams, standalone, temporary, updatedAt) {
+      const workingMembers = teams.flatMap((team) => team.members || []).filter((member) => member.status === 'working').length;
+      document.getElementById('summaryStrip').innerHTML = `
+        <div class="summary-card"><div class="n">${teams.length}</div><div class="l">团队总数</div></div>
+        <div class="summary-card"><div class="n">${teams.reduce((sum, team) => sum + (team.members || []).length, 0)}</div><div class="l">团队成员数</div></div>
+        <div class="summary-card"><div class="n">${standalone.length}</div><div class="l">独立 Agent</div></div>
+        <div class="summary-card"><div class="n">${temporary.length}</div><div class="l">临时召唤</div></div>
+      `;
+      document.getElementById('updatedAt').textContent = new Date(updatedAt || Date.now()).toLocaleString('zh-CN');
+    }
+
     function renderTeams(teams) {
-      const root = document.getElementById('teams');
+      const root = document.getElementById('teamsRoot');
       if (!teams.length) {
-        root.innerHTML = '<div class="team-card"><div class="empty">暂无团队数据</div></div>';
+        root.innerHTML = '<div class="empty">暂无团队数据。</div>';
         return;
       }
-
       root.innerHTML = teams.map((team) => {
-        const rows = (team.members || []).map((m) => {
-          const backups = (m.backup_models || []).join(', ') || '-';
-          return `
-            <tr>
-              <td><span class="dot ${statusClass(m)}"></span>${safe(m.name)}<div class="mono">${safe(m.agent_id)}</div></td>
-              <td class="mono">${safe(m.model)}</td>
-              <td class="mono">${safe(backups)}</td>
-              <td>${m.status === 'working' ? '工作中' : '待工'} / ${healthText(m)}</td>
-              <td>${safe(m.current_task_name || m.current_task)}</td>
-            </tr>`;
-        }).join('');
-
-        const chipHtml = (team.responsibilities || []).map((r) => `<span class="chip">${safe(r)}</span>`).join('');
-        const workflow = (team.workflow?.stages || []).join(' → ');
-        const cls = qTeam && qTeam === team.team_id ? 'team-card highlight' : 'team-card';
-
+        const rows = (team.members || []).map((member) => `
+          <tr>
+            <td>
+              <span class="dot ${statusClass(member)}"></span>${safe(member.name)}
+              <div class="mono muted">${safe(member.agent_id)}</div>
+            </td>
+            <td class="mono">${safe(member.model)}</td>
+            <td class="mono">${safe((member.backup_models || []).join(', '))}</td>
+            <td>${member.status === 'working' ? '工作中' : '待工'} / ${healthText(member)}</td>
+            <td>${safe(member.current_task_name || member.current_task)}</td>
+          </tr>
+        `).join('');
+        const activeCount = (team.members || []).filter((member) => member.status === 'working').length;
+        const isHighlighted = qTeam && qTeam === team.team_id;
         return `
-          <div class="${cls}" id="team-${team.team_id}">
-            <div class="team-row">
-              <h3>${safe(team.team_name)}</h3>
-              <span class="tag">${safe(team.team_id)}</span>
+          <article class="team-card ${isHighlighted ? 'highlight' : ''}" id="team-${team.team_id}">
+            <div class="team-top">
+              <div>
+                <h4>${safe(team.team_name)}</h4>
+                <div class="team-id muted">${safe(team.team_id)} · ${safe(team.description)}</div>
+              </div>
+              <div class="chip">${activeCount} 工作中 / ${(team.members || []).length} 成员</div>
             </div>
-            <div style="font-size:13px;color:var(--muted);">${safe(team.description)}</div>
-            <div class="lead">Lead：<strong>${safe(team.lead?.name)}</strong> · <span class="mono">${safe(team.lead?.model)}</span> · 备选：<span class="mono">${safe((team.lead?.backup_models || []).join(', '))}</span></div>
-            <div class="chips">${chipHtml || '<span class="empty">暂无职责定义</span>'}</div>
-            <div class="workflow">流程：${safe(workflow)} · 当前阶段：<strong>${safe(team.workflow?.current_stage)}</strong></div>
+            <div class="chips">
+              <span class="chip">Lead · ${safe(team.lead?.name)}</span>
+              <span class="chip mono">${safe(team.lead?.model)}</span>
+              ${(team.responsibilities || []).map((item) => `<span class="chip">${safe(item)}</span>`).join('')}
+            </div>
+            <div class="muted" style="font-size:13px;">当前阶段：<strong>${safe(team.workflow?.current_stage)}</strong> · 流程：${safe((team.workflow?.stages || []).join(' → '))}</div>
             <table>
               <thead>
                 <tr>
@@ -350,44 +538,100 @@
                 ${rows || '<tr><td colspan="5" class="empty">暂无成员</td></tr>'}
               </tbody>
             </table>
-          </div>
+            <div class="team-links">
+              <a class="btn" href="task_dashboard.html?team=${encodeURIComponent(team.team_id)}">查看该团队任务</a>
+              <a class="btn" href="system_dashboard.html?subview=team-workflow&target_id=${encodeURIComponent(team.team_id)}">查看团队内流程</a>
+              <a class="btn" href="system_dashboard.html?subview=inter-team-flow&team_id=${encodeURIComponent(team.team_id)}">查看团队间流程</a>
+            </div>
+          </article>
         `;
       }).join('');
-
       if (qTeam) {
         const el = document.getElementById(`team-${qTeam}`);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
 
+    function renderStandalone(agents) {
+      const root = document.getElementById('standaloneRoot');
+      if (!agents.length) {
+        root.innerHTML = '<div class="empty">暂无独立 Agent。</div>';
+        return;
+      }
+      root.innerHTML = `
+        <div class="inline-list">
+          ${agents.map((agent) => `
+            <article class="agent-row">
+              <div class="agent-meta">
+                <div class="agent-title"><span class="dot ${statusClass(agent)}"></span>${safe(agent.name)}</div>
+                <div class="mono muted">${safe(agent.agent_id)} · ${safe(agent.model)}</div>
+                <div class="muted">当前任务：${safe(agent.current_task_name || agent.current_task)}</div>
+              </div>
+              <div class="agent-status">${agent.status === 'working' ? '工作中' : '待工'} / ${healthText(agent)}</div>
+            </article>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderTemporary(agents) {
+      const root = document.getElementById('temporaryRoot');
+      if (!agents.length) {
+        root.innerHTML = '<div class="empty">暂无临时召唤记录。</div>';
+        return;
+      }
+      root.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>临时 Agent</th>
+              <th>召唤者</th>
+              <th>来源任务</th>
+              <th>来源字段</th>
+              <th>首次发现时间</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${agents.map((item) => `
+              <tr>
+                <td class="mono">${safe(item.agent_id)}</td>
+                <td class="mono">${safe(item.summoned_by)}</td>
+                <td class="mono">${safe(item.source_task)}</td>
+                <td class="mono">${safe(item.source)}</td>
+                <td class="mono">${safe(item.first_seen)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
     async function loadPage() {
       const [teamData, standaloneData, temporaryData] = await Promise.all([
         fetchJSON('/api/teams'),
         fetchJSON('/api/standalone-agents'),
-        fetchJSON('/api/temporary-agents')
+        fetchJSON('/api/temporary-agents'),
       ]);
-
       const teams = teamData.teams || [];
       const standalone = standaloneData.agents || [];
       const temporary = temporaryData.agents || [];
-
+      renderSummary(teams, standalone, temporary, teamData.updated_at || standaloneData.updated_at || Date.now());
       renderTeams(teams);
-
-      document.getElementById('updatedAt').textContent = new Date(teamData.updated_at || Date.now()).toLocaleString('zh-CN');
+      renderStandalone(standalone);
+      renderTemporary(temporary);
     }
 
     async function safeLoad() {
       try {
         await loadPage();
-      } catch (err) {
-        console.error(err);
-        alert(`加载失败: ${err.message}`);
+      } catch (error) {
+        console.error(error);
+        alert(`加载失败: ${error.message || error}`);
       }
     }
 
     document.getElementById('refreshBtn').addEventListener('click', safeLoad);
     safeLoad();
-    setInterval(safeLoad, 20000);
   </script>
 </body>
 </html>

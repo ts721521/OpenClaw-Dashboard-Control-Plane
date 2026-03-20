@@ -62,7 +62,7 @@ export function renderTaskDetailHtml(detail: any, state: TaskDashboardState): st
     .join('');
 
   const flow = (detail.team_flow || [])
-    .map((t: string) => `<a class="team-link" href="team_dashboard.html?team=${encodeURIComponent(t)}">${safe(t)}</a>`)
+    .map((t: string) => `<a class="team-link" href="task_dashboard.html?team=${encodeURIComponent(t)}">${safe(t)}</a>`)
     .join('');
 
   const todos = (detail.todo_items || []).map((item: string) => `<li>${safe(item)}</li>`).join('');
@@ -75,6 +75,24 @@ export function renderTaskDetailHtml(detail: any, state: TaskDashboardState): st
   const artifacts = Array.isArray(detail.artifact_index) ? detail.artifact_index : [];
   const stageCard = activeStageCard(detail);
   const gateIssues = buildGateIssues(detail);
+  const closureAction = safe(detail.next_recommended_action || '-');
+  const closureOwner = safe(detail.next_recommended_owner || '-');
+  const closureHtml = `
+        <div class="box">
+          <h3>闭环状态</h3>
+          <div class="k2">
+            <div><div class="v mono">${safe(detail.closure_state || '-')}</div><div class="l">当前闭环状态</div></div>
+            <div><div class="v mono">${closureAction}</div><div class="l">下一步建议</div></div>
+            <div><div class="v mono">${closureOwner}</div><div class="l">建议接手人</div></div>
+            <div><div class="v">${detail.requires_manual_confirm ? '需要人工确认' : '可直接执行'}</div><div class="l">执行方式</div></div>
+          </div>
+          <div style="margin-top:10px;font-size:13px;color:var(--muted);">为什么停住：${safe(detail.closure_reason || '当前没有闭环阻断。')}</div>
+          ${detail.recovery_reason ? `<div style="margin-top:6px;font-size:12px;color:var(--muted);">恢复原因: ${safe(detail.recovery_reason)} · 优先级: <span class="mono">${safe(detail.recovery_priority || '-')}</span></div>` : ''}
+          <div class="detail-actions">
+            ${detail.next_recommended_action ? `<button class="btn primary" id="applyRecommendedActionBtn" ${detail.requires_manual_confirm ? 'disabled' : ''}>一键应用建议</button>` : ''}
+          </div>
+        </div>
+      `;
   const gateHtml = gateIssues.length
     ? `<div class="gate-panel">${gateIssues
         .map(
@@ -91,6 +109,7 @@ export function renderTaskDetailHtml(detail: any, state: TaskDashboardState): st
     : '';
 
   const coreHtml = `
+        ${closureHtml}
         <div class="box">
           <h3>${safe(detail.task_name)}</h3>
           <div class="mono">${safe(detail.task_id)} · ${safe(detail.task_type)}</div>
@@ -203,7 +222,7 @@ export function renderTaskDetailHtml(detail: any, state: TaskDashboardState): st
         ${detail.raw?.review?.review_id ? `
         <div class="box">
           <h3>关联审查</h3>
-          <a href="system_dashboard.html?governance=review&review_id=${encodeURIComponent(detail.raw.review.review_id)}" class="btn" target="_blank" rel="noopener">在系统治理中查看审查</a>
+          <a href="task_dashboard.html?task_id=${encodeURIComponent(detail.raw.review.review_id)}" class="btn" target="_blank" rel="noopener">在任务中心查看审查</a>
           <div class="mono" style="margin-top:8px;">${safe(detail.raw.review.review_id)}</div>
         </div>
         ` : ''}
@@ -224,6 +243,7 @@ export function renderTaskDetailHtml(detail: any, state: TaskDashboardState): st
 
   if (detail.task_type === 'review_task') {
     return `
+          ${closureHtml}
           <div class="box">
             <h3>${safe(detail.task_name)}</h3>
             <div class="mono">${safe(detail.task_id)} · 审查任务</div>

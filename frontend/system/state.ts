@@ -1,41 +1,57 @@
+// @ts-nocheck
 export const state: any = {
-  view: 'architecture-map',
+  view: 'architecture',
   architecture: null,
+  teams: [],
+  standaloneAgents: [],
+  tasks: [],
   flows: [],
-  selectedFlowId: null,
   flowDetail: null,
-  updatedAt: null,
-  teamLeadsDoc: null,
-  teamStateDoc: null,
-  changeTasks: [],
-  reviewTasks: [],
-  selectedChangeId: null,
-  selectedReviewId: null,
-  reviewDetail: null,
   runtimeVersions: null,
-  governanceView: 'change',
-  recoveryScan: null,
-  pendingChanges: {},
-  promptProposal: null,
+  updatedAt: null,
   selectedObjectType: null,
   selectedObjectId: null,
-  selectedTargetType: null,
-  selectedTargetId: null,
-  advancedConfigMode: 'workflow-designer',
-  workflowGraphTargetId: null,
-  workflowGraph: null,
+  selectedTeamId: null,
+  selectedFlowId: null,
+  selectedInterTeamEdge: null,
   selectedWorkflowNodeId: null,
-  selectedWorkflowEdgeKey: null,
-  workflowLinkFromNodeId: null,
+  graphEdit: {
+    architecture: null,
+    'inter-team-flow': null,
+    'team-workflow': null,
+  },
+  graphEditMode: {
+    architecture: false,
+    'inter-team-flow': false,
+    'team-workflow': false,
+  },
+  graphConnectMode: {
+    architecture: false,
+    'inter-team-flow': false,
+    'team-workflow': false,
+  },
+  graphConnectPending: {
+    architecture: null,
+    'inter-team-flow': null,
+    'team-workflow': null,
+  },
+  graphConnectDrag: {
+    architecture: null,
+    'inter-team-flow': null,
+    'team-workflow': null,
+  },
+  graphEditStatus: {},
+  expandedTeams: {},
+  interTeamFlowId: 'inter-team:default',
+  architectureLayout: { positions: {}, updatedAt: null },
+  interTeamLayout: { positions: {}, updatedAt: null },
+  graphZoom: {
+    architecture: 1,
+    'inter-team-flow': 1,
+    'team-workflow': 1,
+  },
 };
 
 export function safe(value: unknown): string {
   return value === null || value === undefined || value === '' ? '-' : String(value);
-}
-
-export function objectTypeLabel(type: string): string {
-  if (type === 'team') return '团队';
-  if (type === 'member') return '成员';
-  if (type === 'agent') return '独立 Agent';
-  return '-';
 }

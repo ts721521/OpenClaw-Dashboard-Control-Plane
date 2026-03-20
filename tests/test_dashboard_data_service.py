@@ -131,6 +131,97 @@ class DashboardDataServiceTests(unittest.TestCase):
         self.assertIsInstance(detail["session_link"], dict)
         self.assertTrue(detail["session_link"].get("url"))
 
+    def test_task_detail_includes_closure_fields_for_blocked_task(self):
+        from server import DashboardDataService
+
+        task = json.loads((self.tasks_dir / "phaseX_20260301_001.json").read_text(encoding="utf-8"))
+        task["business_bound"] = True
+        task["business_truth_source"] = ""
+        task["acceptance_result"] = ""
+        (self.tasks_dir / "phaseX_20260301_001.json").write_text(json.dumps(task), encoding="utf-8")
+
+        svc = DashboardDataService(base_dir=str(self.base), workspace_dir=str(self.workspace), status_provider=lambda: {"agents": {"agents": []}})
+        detail = svc.get_task_detail("TASK-20260301-001")
+        self.assertEqual(detail.get("closure_state"), "blocked")
+        self.assertEqual(detail.get("next_recommended_action"), "request_business_input")
+        self.assertTrue(detail.get("requires_manual_confirm"))
+        self.assertTrue(detail.get("closure_reason"))
+
+    def test_request_business_input_records_pending_request_and_audit(self):
+        from server import DashboardDataService
+
+        task = json.loads((self.tasks_dir / "phaseX_20260301_001.json").read_text(encoding="utf-8"))
+        task["business_bound"] = True
+        task["business_truth_source"] = ""
+        task["acceptance_result"] = ""
+        (self.tasks_dir / "phaseX_20260301_001.json").write_text(json.dumps(task), encoding="utf-8")
+
+        svc = DashboardDataService(base_dir=str(self.base), workspace_dir=str(self.workspace), status_provider=lambda: {"agents": {"agents": []}})
+        result = svc.request_business_input(
+            task_id="TASK-20260301-001",
+            actor_id="dashboard-ui",
+            actor_role="admin",
+            requested_from="main",
+            missing_inputs="业务背景, 验收口径",
+            note="请补齐业务信息",
+        )
+        self.assertTrue(result.get("ok"))
+        detail = svc.get_task_detail("TASK-20260301-001")
+        self.assertEqual(detail.get("closure_state"), "waiting_input")
+        self.assertIn("等待", detail.get("closure_reason", ""))
+        self.assertTrue(any((row.get("mode") == "manual_closure" and row.get("action") == "request_business_input") for row in detail.get("control_audit", [])))
+
+    def test_assign_owner_and_return_to_rework_are_executable(self):
+        from server import DashboardDataService
+
+        svc = DashboardDataService(base_dir=str(self.base), workspace_dir=str(self.workspace), status_provider=lambda: {"agents": {"agents": []}})
+        assign_result = svc.assign_owner(
+            task_id="TASK-20260301-001",
+            actor_id="dashboard-ui",
+            actor_role="admin",
+            assigned_to="rd_lead",
+            assigned_team="team-rd",
+            reason="明确责任人",
+        )
+        self.assertTrue(assign_result.get("ok"))
+
+        rework_result = svc.return_to_rework_owner(
+            task_id="TASK-20260301-001",
+            actor_id="dashboard-ui",
+            actor_role="admin",
+            rework_owner="rd_lead",
+            reason="需要返工",
+        )
+        self.assertTrue(rework_result.get("ok"))
+        detail = svc.get_task_detail("TASK-20260301-001")
+        self.assertEqual(detail.get("closure_state"), "rework")
+        self.assertEqual(detail.get("next_recommended_action"), "")
+        self.assertIn("返工", detail.get("closure_reason", ""))
+
+    def test_review_task_detail_includes_closure_fields(self):
+        from server import DashboardDataService
+
+        svc = DashboardDataService(base_dir=str(self.base), workspace_dir=str(self.workspace), status_provider=lambda: {"agents": {"agents": []}})
+        created = svc.create_review_task(
+            payload={
+                "title": "审查补齐",
+                "submission_bundle": {
+                    "incident_key": "inc-test-review-001",
+                    "summary": "等待 reviewer packet",
+                    "artifacts": [{"artifact_type": "review_packet", "path": "/tmp/review.md"}],
+                    "target_task_id": "TASK-20260301-001",
+                },
+            },
+            actor_id="main",
+            actor_role="admin",
+        )
+        self.assertTrue(created.get("ok"))
+        review_id = created.get("review_id")
+        detail = svc.get_task_detail(review_id)
+        self.assertEqual(detail.get("closure_state"), "waiting_review")
+        self.assertEqual(detail.get("next_recommended_action"), "redispatch_reviewer")
+        self.assertEqual(detail.get("next_recommended_owner"), "braintrust_chief")
+
     def test_control_task_fallback_soft_mode_updates_task(self):
         from server import DashboardDataService
 
@@ -972,6 +1063,166 @@ class DashboardDataServiceTests(unittest.TestCase):
         )
         self.assertFalse(denied.get("ok"))
         self.assertEqual(denied.get("error"), "permission denied")
+
+    def test_graph_edit_submit_and_confirm_apply_for_architecture(self):
+        from server import DashboardDataService
+
+        svc = DashboardDataService(base_dir=str(self.base), workspace_dir=str(self.workspace), status_provider=lambda: {"agents": {"agents": []}})
+        initial = svc.get_graph_edit_payload("architecture", "default")
+        current_edges = initial.get("current_graph", {}).get("edges") or []
+        self.assertTrue(any(edge.get("type") == "business_flow" for edge in current_edges))
+
+        draft_graph = {
+            "nodes": initial.get("current_graph", {}).get("nodes") or [],
+            "edges": [
+                {"from": "team-km", "to": "team-rd", "type": "business_flow"},
+                {"from": "main", "to": "team-km", "type": "standalone_collab"},
+            ],
+        }
+        submitted = svc.submit_graph_edit_to_luban(
+            kind="architecture",
+            target_id="default",
+            draft_graph=draft_graph,
+            operator="dashboard-ui",
+        )
+        self.assertTrue(submitted.get("ok"))
+        change_id = submitted.get("change_id")
+        change = svc._task_repo.get_change_task(change_id)  # type: ignore[attr-defined]
+        self.assertEqual(change.get("target_kind"), "architecture")
+        self.assertEqual(change.get("implementation_status"), "pending_implementation")
+
+        change["implementation_status"] = "ready_for_confirm"
+        change["implementation_result_graph"] = draft_graph
+        change["implementation_summary"] = "Luban applied architecture edges"
+        svc._task_repo.upsert_change_task(change)  # type: ignore[attr-defined]
+
+        confirmed = svc.confirm_graph_edit_apply(
+            kind="architecture",
+            target_id="default",
+            change_id=change_id,
+            operator="dashboard-ui",
+        )
+        self.assertTrue(confirmed.get("ok"))
+        refreshed = svc.get_graph_edit_payload("architecture", "default")
+        refreshed_edges = refreshed.get("current_graph", {}).get("edges") or []
+        self.assertTrue(any(edge.get("from") == "main" and edge.get("to") == "team-km" and edge.get("type") == "standalone_collab" for edge in refreshed_edges))
+
+    def test_graph_edit_submit_writes_luban_request_file(self):
+        from server import DashboardDataService
+
+        svc = DashboardDataService(base_dir=str(self.base), workspace_dir=str(self.workspace), status_provider=lambda: {"agents": {"agents": []}})
+        draft_graph = {
+            "nodes": [{"id": "team-rd", "type": "team"}, {"id": "team-km", "type": "team"}],
+            "edges": [{"from": "team-km", "to": "team-rd", "type": "business_flow"}],
+        }
+        submitted = svc.submit_graph_edit_to_luban(
+            kind="architecture",
+            target_id="default",
+            draft_graph=draft_graph,
+            operator="dashboard-ui",
+        )
+        self.assertTrue(submitted.get("ok"))
+        change_id = submitted.get("change_id")
+        request_path = self.base / "workspaces" / "luban" / "inbox" / "graph_edits" / f"{change_id}.request.json"
+        self.assertTrue(request_path.exists())
+        payload = json.loads(request_path.read_text(encoding="utf-8"))
+        self.assertEqual(payload.get("change_id"), change_id)
+        self.assertEqual(payload.get("target_kind"), "architecture")
+        self.assertEqual(payload.get("target_id"), "default")
+        self.assertEqual(payload.get("operator"), "dashboard-ui")
+        self.assertEqual(payload.get("draft_graph", {}).get("edges", [{}])[0].get("type"), "business_flow")
+
+    def test_graph_edit_implementation_auto_ingests_luban_result_file(self):
+        from server import DashboardDataService
+
+        svc = DashboardDataService(base_dir=str(self.base), workspace_dir=str(self.workspace), status_provider=lambda: {"agents": {"agents": []}})
+        initial = svc.get_graph_edit_payload("architecture", "default")
+        draft_graph = {
+            "nodes": initial.get("current_graph", {}).get("nodes") or [],
+            "edges": [
+                {"from": "team-km", "to": "team-rd", "type": "business_flow"},
+                {"from": "main", "to": "team-km", "type": "standalone_collab"},
+            ],
+        }
+        submitted = svc.submit_graph_edit_to_luban(
+            kind="architecture",
+            target_id="default",
+            draft_graph=draft_graph,
+            operator="dashboard-ui",
+        )
+        change_id = submitted.get("change_id")
+        result_path = self.base / "workspaces" / "luban" / "outbox" / "graph_edits" / f"{change_id}.result.json"
+        result_path.parent.mkdir(parents=True, exist_ok=True)
+        result_path.write_text(
+            json.dumps(
+                {
+                    "change_id": change_id,
+                    "implementation_status": "ready_for_confirm",
+                    "implementation_summary": "Luban auto-applied architecture edges",
+                    "implementation_result_graph": draft_graph,
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        payload = svc.get_graph_edit_payload("architecture", "default")
+        self.assertTrue(payload.get("ok"))
+        detail = payload.get("implementation") or {}
+        self.assertEqual(detail.get("implementation_status"), "ready_for_confirm")
+        self.assertEqual(detail.get("implementation_summary"), "Luban auto-applied architecture edges")
+        self.assertEqual(detail.get("implementation_result_graph", {}).get("edges", [{}])[-1].get("type"), "standalone_collab")
+        self.assertFalse(result_path.exists())
+
+    def test_graph_edit_submit_and_confirm_apply_for_team_workflow(self):
+        from server import DashboardDataService
+
+        svc = DashboardDataService(base_dir=str(self.base), workspace_dir=str(self.workspace), status_provider=lambda: {"agents": {"agents": []}})
+        initial = svc.get_graph_edit_payload("team-workflow", "team-rd")
+        graph = initial.get("current_graph", {})
+        self.assertTrue(graph.get("nodes"))
+        self.assertTrue(graph.get("edges"))
+
+        nodes = graph.get("nodes") or []
+        first = nodes[0]["id"]
+        last = nodes[-1]["id"]
+        draft_graph = {
+            **graph,
+            "edges": list(graph.get("edges") or []) + [
+                {
+                    "key": f"{last}->{first}",
+                    "from": last,
+                    "to": first,
+                    "transitionType": "rework",
+                    "condition": "返工",
+                    "requiresConfirmation": True,
+                }
+            ],
+        }
+        submitted = svc.submit_graph_edit_to_luban(
+            kind="team-workflow",
+            target_id="team-rd",
+            draft_graph=draft_graph,
+            operator="dashboard-ui",
+        )
+        self.assertTrue(submitted.get("ok"))
+        change_id = submitted.get("change_id")
+        change = svc._task_repo.get_change_task(change_id)  # type: ignore[attr-defined]
+        change["implementation_status"] = "ready_for_confirm"
+        change["implementation_result_graph"] = draft_graph
+        change["implementation_summary"] = "Luban applied team workflow"
+        svc._task_repo.upsert_change_task(change)  # type: ignore[attr-defined]
+
+        confirmed = svc.confirm_graph_edit_apply(
+            kind="team-workflow",
+            target_id="team-rd",
+            change_id=change_id,
+            operator="dashboard-ui",
+        )
+        self.assertTrue(confirmed.get("ok"))
+        refreshed = svc.get_graph_edit_payload("team-workflow", "team-rd")
+        edge_keys = {edge.get("key") for edge in (refreshed.get("current_graph", {}).get("edges") or [])}
+        self.assertIn(f"{last}->{first}", edge_keys)
 
 
 if __name__ == "__main__":

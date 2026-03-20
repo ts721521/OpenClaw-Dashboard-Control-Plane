@@ -116,14 +116,18 @@
 
     .pool-tabs {
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
+      overflow-x: auto;
       gap: 6px;
       margin: 0;
-      padding: 0;
+      padding: 0 0 4px 0;
       border: none;
       background: transparent;
       box-shadow: none;
+      white-space: nowrap;
     }
+    .pool-tabs::-webkit-scrollbar { height: 4px; }
+    .pool-tabs::-webkit-scrollbar-thumb { background: #d3ddd6; border-radius: 4px; }
 
     .pool-tab {
       border: 1px solid #d3ddd6;
@@ -142,9 +146,42 @@
     }
 
     .layout {
-      display: grid;
-      grid-template-columns: 40% 60%;
-      gap: 14px;
+      position: relative;
+    }
+    
+    .detail-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(16, 36, 24, 0.3);
+      z-index: 90;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      backdrop-filter: blur(2px);
+    }
+    .detail-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    .detail-panel {
+      position: fixed;
+      top: 14px;
+      right: -100%;
+      bottom: 14px;
+      width: 680px;
+      max-width: calc(100vw - 28px);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: 0 12px 48px rgba(15, 35, 24, 0.18);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .detail-panel.open {
+      right: 14px;
     }
 
     .panel {
@@ -167,18 +204,25 @@
     .head .meta { color: var(--muted); font-size: 12px; }
 
     .task-list {
-      max-height: 72vh;
+      max-height: calc(100vh - 160px);
       overflow: auto;
       padding: 10px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 10px;
+      align-content: start;
     }
 
     .task {
       border: 1px solid var(--line);
       border-radius: 12px;
-      padding: 10px;
-      margin-bottom: 10px;
+      padding: 12px;
+      margin-bottom: 0px;
       cursor: pointer;
       background: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
     }
 
     .task.selected { border-color: #89c4ab; background: #f2fbf6; }
@@ -227,8 +271,8 @@
 
     .detail {
       padding: 14px;
-      max-height: 76vh;
-      overflow: auto;
+      flex: 1;
+      overflow-y: auto;
     }
 
     .box {
@@ -425,17 +469,21 @@
 
     @media (max-width: 1200px) {
       .app { grid-template-columns: 1fr; padding: 10px; }
-      .side { position: static; height: auto; }
+      .side { position: static; height: auto; flex-direction: row; align-items: center; flex-wrap: wrap; padding: 10px 14px; }
+      .brand { border-bottom: none; border-right: 1px solid var(--line); padding-right: 14px; padding-bottom: 0; display: flex; align-items: center; gap: 10px; }
+      .brand h2 { font-size: 16px; }
+      .brand p { margin: 0; }
+      .menu { display: flex; flex-direction: row; gap: 6px; overflow-x: auto; flex: 1; align-items: center; }
       .shell { padding: 10px 0; }
-      .layout { grid-template-columns: 1fr; }
-      .task-list { max-height: 44vh; }
+      .task-list { max-height: calc(100vh - 180px); }
     }
 
     @media (max-width: 820px) {
-      .shell { padding: 12px; }
+      .shell { padding: 10px 0; }
       .k2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .top { align-items: flex-start; }
       .top .actions { margin-left: 0; }
+      .task-list { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -447,7 +495,6 @@
         <p>Dashboard 控制台</p>
       </div>
       <nav class="menu">
-        <a href="team_dashboard.html">团队管理中心</a>
         <a class="active" href="task_dashboard.html">任务管理中心</a>
         <a href="system_dashboard.html">系统架构管理中心</a>
       </nav>
@@ -463,6 +510,7 @@
             <button class="pool-tab" data-pool="governance_pool">治理池</button>
             <button class="pool-tab" data-pool="review_pool">审查池</button>
             <button class="pool-tab" data-pool="recovery_pool">恢复池</button>
+            <button class="pool-tab" data-pool="alerts">告警</button>
             <button class="pool-tab" data-pool="completed">已完成</button>
           </nav>
           <div class="actions">
@@ -476,20 +524,24 @@
 
         <div class="layout">
           <section class="panel">
-            <div class="head">
+            <div class="head" style="align-items: center;">
               <h2>任务列表</h2>
-              <div class="meta">默认：进行中 · 更新时间：<span id="updatedAt">-</span></div>
+              <div class="meta">更新时间：<span id="updatedAt">-</span></div>
             </div>
             <div class="task-list" id="taskList"></div>
           </section>
 
-          <section class="panel">
-            <div class="head">
-              <h2>任务详情</h2>
-              <div class="meta">可直接停止/重启/删除，或跳转会话</div>
+          <div class="detail-overlay" id="detailOverlay"></div>
+          <section class="detail-panel" id="detailPanel">
+            <div class="head" style="display:flex; justify-content:space-between; align-items:center; padding: 12px 14px; border-bottom: 1px solid var(--line);">
+              <div>
+                <h2 style="margin:0;font-size:17px;">任务详情</h2>
+                <div class="meta" style="color:var(--muted);font-size:12px;">详情及操作台</div>
+              </div>
+              <button id="closeDetailBtn" style="background:transparent;border:none;font-size:24px;cursor:pointer;color:var(--muted);line-height:1;display:flex;align-items:center;justify-content:center;height:24px;width:24px;">&times;</button>
             </div>
             <div class="detail" id="detail">
-              <div class="empty">请选择左侧任务。</div>
+              <div class="empty">加载中...</div>
             </div>
           </section>
         </div>
@@ -507,6 +559,10 @@
     let lastSince = null;
     let showHistory = false;
     let diagnosticMode = false;
+    let currentTeam = '';
+    let currentTeamFocus = '';
+    let currentInterTeamFlow = '';
+    let lastActionResult = null;
     const {
       safe,
       statusBadge,
@@ -525,6 +581,9 @@
       selectedTaskId = route.selectedTaskId;
       currentFilter = route.currentFilter;
       currentPool = route.currentPool;
+      currentTeam = route.team || '';
+      currentTeamFocus = route.teamFocus || '';
+      currentInterTeamFlow = route.interTeamFlow || '';
     }
 
     function syncRouteState() {
@@ -533,6 +592,9 @@
         diagnosticMode,
         currentPool,
         selectedTaskId,
+        team: currentTeam,
+        teamFocus: currentTeamFocus,
+        interTeamFlow: currentInterTeamFlow,
       });
       window.history.replaceState({}, '', nextUrl);
     }
@@ -548,7 +610,10 @@
     function buildTaskPath() {
       const params = new URLSearchParams();
       if (showHistory) params.set('include_history', '1');
-      if (currentPool === 'running') params.set('status', 'in_progress');
+      if (currentTeam) params.set('team', currentTeam);
+      if (currentTeamFocus) params.set('team_focus', currentTeamFocus);
+      if (currentInterTeamFlow) params.set('inter_team_flow', currentInterTeamFlow);
+      if (currentPool === 'running' || currentPool === 'alerts') params.set('status', 'in_progress');
       else if (currentPool === 'completed') params.set('status', 'completed');
       else if (currentPool && currentPool !== 'all') params.set('task_pool', currentPool);
       else if (currentFilter !== 'all') params.set('status', currentFilter);
@@ -592,6 +657,11 @@
         list = data.tasks || [];
         if (data.next_since) lastSince = data.next_since;
         updatedAt = data.updated_at || Date.now();
+      }
+
+      // 告警视图：仅展示存在 Gate 问题的任务，避免在主列表里挤占空间
+      if (currentPool === 'alerts') {
+        list = list.filter(t => t.task_type !== 'review_task' && buildGateIssues(t).length > 0);
       }
       document.getElementById('updatedAt').textContent = new Date(updatedAt).toLocaleString('zh-CN');
 
@@ -640,10 +710,16 @@
       root.querySelectorAll('.task').forEach(el => {
         el.addEventListener('click', async () => {
           selectedTaskId = el.dataset.id;
+          
+          root.querySelectorAll('.task').forEach(t => t.classList.remove('selected'));
+          el.classList.add('selected');
+          
+          document.getElementById('detailPanel').classList.add('open');
+          document.getElementById('detailOverlay').classList.add('open');
+          
           syncRouteState();
           try {
             await renderDetail(selectedTaskId);
-            await loadTasks();
           } catch (e) {
             document.getElementById('detail').innerHTML = `<div class="empty">详情加载失败: ${safe(e.message)}</div>`;
           }
@@ -651,12 +727,14 @@
       });
 
       if (selectedTaskId && list.some(t => t.task_id === selectedTaskId)) {
+        document.getElementById('detailPanel').classList.add('open');
+        document.getElementById('detailOverlay').classList.add('open');
         await renderDetail(selectedTaskId);
-      } else if (!selectedTaskId) {
-        selectedTaskId = list[0].task_id;
+      } else {
+        selectedTaskId = null;
+        document.getElementById('detailPanel').classList.remove('open');
+        document.getElementById('detailOverlay').classList.remove('open');
         syncRouteState();
-        await renderDetail(selectedTaskId);
-        await loadTasks();
       }
     }
 
@@ -756,10 +834,101 @@
       return res;
     }
 
+    async function applyRecommendedAction(taskId) {
+      const res = await postJSON(`/api/tasks/${encodeURIComponent(taskId)}/apply-recommended-action`, {
+        actor_id: 'dashboard-ui',
+        actor_role: 'admin',
+      }, 12000);
+      if (!res.ok) throw new Error(res.error || '应用建议失败');
+      return res;
+    }
+
     function renderControlAudit(auditList) {
       const list = auditList || [];
       if (!list.length) return '<div class="empty">暂无控制记录</div>';
-      return `<ul class="audit-list">${list.map(x => `<li>${safe(x.ts)} · ${safe(x.action)} · mode=${safe(x.mode)} · op=${safe(x.operator)}${x.hard_error ? ` · err=${safe(x.hard_error)}` : ''}</li>`).join('')}</ul>`;
+      return `<ul class="audit-list">${list.map(x => `<li>${safe(x.ts)} · ${safe(x.action)} · mode=${safe(x.mode)} · op=${safe(x.operator)}${x.result_summary ? ` · result=${safe(x.result_summary)}` : ''}${x.hard_error ? ` · err=${safe(x.hard_error)}` : ''}</li>`).join('')}</ul>`;
+    }
+
+    function actionResultHtml(taskId) {
+      if (!lastActionResult || lastActionResult.taskId !== taskId) {
+        return '<div id="closureActionResult" class="empty">暂无最近操作结果</div>';
+      }
+      const tone = lastActionResult.ok ? 'var(--ok)' : 'var(--danger)';
+      return `
+        <div id="closureActionResult" style="border:1px solid ${tone};background:${lastActionResult.ok ? '#eefaf3' : '#fff2f1'};color:${tone};border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.6;">
+          <strong>${safe(lastActionResult.title || '最近操作结果')}</strong>
+          <div style="margin-top:4px;color:var(--ink);">${safe(lastActionResult.message || '-')}</div>
+          ${lastActionResult.detail ? `<div class="mono" style="margin-top:6px;">${safe(lastActionResult.detail)}</div>` : ''}
+        </div>
+      `;
+    }
+
+    function setActionResult(taskId, ok, title, message, detail = '') {
+      lastActionResult = { taskId, ok, title, message, detail };
+      const panel = document.getElementById('closureActionResult');
+      if (panel) {
+        panel.outerHTML = actionResultHtml(taskId);
+        document.getElementById('closureActionResult')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
+    function manualClosureForm(detail, stageCard) {
+      const action = String(detail?.next_recommended_action || '');
+      const nextOwner = detail?.next_recommended_owner || '';
+      if (!detail?.requires_manual_confirm || !action) return '';
+      if (action === 'request_business_input') {
+        return `
+          <div class="box">
+            <h3>补业务输入</h3>
+            <div class="op-grid">
+              <input id="requestBusinessInputFrom" type="text" placeholder="请求对象" value="${safe(nextOwner || detail?.created_by || '')}" />
+              <input id="requestBusinessInputMissing" type="text" placeholder="缺失输入，例如业务背景、验收口径" value="${safe(detail?.closure_reason || '')}" />
+              <textarea id="requestBusinessInputNote" placeholder="补充说明，例如需要谁在何时补齐什么信息">${safe(`请补齐：${detail?.closure_reason || '业务输入项'}`)}</textarea>
+            </div>
+            <div class="detail-actions"><button class="btn primary" id="requestBusinessInputBtn">发起补输入</button></div>
+          </div>
+        `;
+      }
+      if (action === 'assign_owner') {
+        return `
+          <div class="box">
+            <h3>指派负责人</h3>
+            <div class="op-grid">
+              <input id="assignOwnerAgent" type="text" placeholder="负责人 Agent" value="${safe(nextOwner || detail?.owner || '')}" />
+              <input id="assignOwnerTeam" type="text" placeholder="负责人团队" value="${safe(detail?.team || '')}" />
+              <textarea id="assignOwnerReason" placeholder="指派原因，例如当前无责任人或需要切换团队">${safe(detail?.closure_reason || '根据当前闭环状态指派明确责任人')}</textarea>
+            </div>
+            <div class="detail-actions"><button class="btn primary" id="assignOwnerBtn">确认指派</button></div>
+          </div>
+        `;
+      }
+      if (action === 'confirm_handoff') {
+        return `
+          <div class="box">
+            <h3>确认交接</h3>
+            <div class="op-grid">
+              <input id="confirmHandoffStageId" type="number" min="1" step="1" value="${safe(stageCard?.stage_id || (detail?.current_stage_index || 0) + 1)}" />
+              <input id="confirmHandoffNextOwner" type="text" placeholder="下一接手人" value="${safe(nextOwner || detail?.next_agent || '')}" />
+              <textarea id="confirmHandoffNote" placeholder="请输入交接说明">${safe(`${detail?.current_stage || '当前阶段'}已完成，准备交给${nextOwner || detail?.next_agent || '下一接手人'}继续处理。`)}</textarea>
+              <textarea id="confirmHandoffArtifactSummary" placeholder="请概括本次交接产物">${safe(stageCard?.artifact_summary || `${detail?.current_stage || '当前阶段'}相关产物已整理，可供下一角色继续处理。`)}</textarea>
+            </div>
+            <div class="detail-actions"><button class="btn primary" id="confirmHandoffBtn">确认交接</button></div>
+          </div>
+        `;
+      }
+      if (action === 'return_to_rework_owner') {
+        return `
+          <div class="box">
+            <h3>回退返工责任人</h3>
+            <div class="op-grid">
+              <input id="returnToReworkOwner" type="text" placeholder="返工责任人" value="${safe(nextOwner || detail?.owner || '')}" />
+              <textarea id="returnToReworkReason" placeholder="返工原因，例如哪一项没有通过">${safe(detail?.closure_reason || '根据当前审查或 gate 结果回退返工')}</textarea>
+            </div>
+            <div class="detail-actions"><button class="btn warn" id="returnToReworkBtn">确认返工回退</button></div>
+          </div>
+        `;
+      }
+      return '';
     }
 
     async function renderDetail(taskId) {
@@ -793,7 +962,7 @@
       }).join('');
 
       const flow = (d.team_flow || []).map(t =>
-        `<a class="team-link" href="team_dashboard.html?team=${encodeURIComponent(t)}">${safe(t)}</a>`
+        `<a class="team-link" href="task_dashboard.html?team=${encodeURIComponent(t)}">${safe(t)}</a>`
       ).join('');
 
       const todos = (d.todo_items || []).map(item => `<li>${safe(item)}</li>`).join('');
@@ -806,6 +975,26 @@
       const artifacts = Array.isArray(d.artifact_index) ? d.artifact_index : [];
       const stageCard = activeStageCard(d);
       const gateIssues = buildGateIssues(d);
+      const manualClosureHtml = manualClosureForm(d, stageCard);
+      const closureHtml = `
+        <div class="box">
+          <h3>闭环状态</h3>
+          <div class="k2">
+            <div><div class="v mono">${safe(d.closure_state || '-')}</div><div class="l">当前闭环状态</div></div>
+            <div><div class="v mono">${safe(d.next_recommended_action || '-')}</div><div class="l">下一步建议</div></div>
+            <div><div class="v mono">${safe(d.next_recommended_owner || '-')}</div><div class="l">建议接手人</div></div>
+            <div><div class="v">${d.requires_manual_confirm ? '需要人工确认' : '可直接执行'}</div><div class="l">执行方式</div></div>
+          </div>
+          <div style="margin-top:10px;font-size:13px;color:var(--muted);">为什么停住：${safe(d.closure_reason || '当前没有闭环阻断。')}</div>
+          ${(d.recovery_reason || d.recovery_priority) ? `<div style="margin-top:6px;font-size:12px;color:var(--muted);">恢复原因: ${safe(d.recovery_reason || '-')} · 优先级: <span class="mono">${safe(d.recovery_priority || '-')}</span></div>` : ''}
+          ${d.next_recommended_action ? `<div class="detail-actions"><button class="btn primary" id="applyRecommendedActionBtn" ${d.requires_manual_confirm ? 'disabled' : ''}>一键应用建议</button></div>` : ''}
+        </div>
+        ${manualClosureHtml}
+        <div class="box">
+          <h3>最近操作结果</h3>
+          ${actionResultHtml(taskId)}
+        </div>
+      `;
       const gateHtml = gateIssues.length
         ? `<div class="gate-panel">${gateIssues.map((item) => `<div class="gate-item ${item.level}"><strong>${safe(item.title)}</strong><div style="margin-top:4px;color:var(--muted);">${safe(item.body)}</div></div>`).join('')}</div>`
         : '<div class="gate-panel"><div class="gate-item"><strong>Gate 状态稳定</strong><div style="margin-top:4px;color:var(--muted);">当前业务绑定、验收和 gate_result 没有发现阻断项。</div></div></div>';
@@ -818,6 +1007,7 @@
         : '';
 
       root.innerHTML = `
+        ${closureHtml}
         <div class="box">
           <h3>${safe(d.task_name)}</h3>
           <div class="mono">${safe(d.task_id)} · ${safe(d.task_type)}</div>
@@ -926,7 +1116,7 @@
         ${(d.raw?.review?.review_id) ? `
         <div class="box">
           <h3>关联审查</h3>
-          <a href="system_dashboard.html?governance=review&review_id=${encodeURIComponent(d.raw.review.review_id)}" class="btn" target="_blank" rel="noopener">在系统治理中查看审查</a>
+          <a href="task_dashboard.html?task_id=${encodeURIComponent(d.raw.review.review_id)}" class="btn" target="_blank" rel="noopener">在任务中心查看审查</a>
           <div class="mono" style="margin-top:8px;">${safe(d.raw.review.review_id)}</div>
         </div>
         ` : ''}
@@ -947,6 +1137,7 @@
 
       if (d.task_type === 'review_task') {
         root.innerHTML = `
+          ${closureHtml}
           <div class="box">
             <h3>${safe(d.task_name)}</h3>
             <div class="mono">${safe(d.task_id)} · 审查任务</div>
@@ -985,6 +1176,11 @@
       const reclaimReviewBtn = document.getElementById('reclaimReviewBtn');
       const addArtifactBtn = document.getElementById('addArtifactBtn');
       const handoffStageBtn = document.getElementById('handoffStageBtn');
+      const applyRecommendedActionBtn = document.getElementById('applyRecommendedActionBtn');
+      const requestBusinessInputBtn = document.getElementById('requestBusinessInputBtn');
+      const assignOwnerBtn = document.getElementById('assignOwnerBtn');
+      const confirmHandoffBtn = document.getElementById('confirmHandoffBtn');
+      const returnToReworkBtn = document.getElementById('returnToReworkBtn');
 
       claimBtn?.addEventListener('click', async () => {
         try {
@@ -1036,6 +1232,107 @@
       });
       delBtn?.addEventListener('click', async () => {
         try { await deleteTask(taskId); } catch (e) { alert(`删除失败: ${e.message}`); }
+      });
+      applyRecommendedActionBtn?.addEventListener('click', async () => {
+        try {
+          const res = await applyRecommendedAction(taskId);
+          alert(`已应用建议: ${safe(res.applied_action || d.next_recommended_action)}`);
+          await refreshAll();
+        } catch (e) {
+          alert(`应用建议失败: ${safe(e.message)}`);
+        }
+      });
+      requestBusinessInputBtn?.addEventListener('click', async () => {
+        try {
+          const requestedFrom = document.getElementById('requestBusinessInputFrom')?.value?.trim();
+          const missingInputs = document.getElementById('requestBusinessInputMissing')?.value?.trim();
+          const note = document.getElementById('requestBusinessInputNote')?.value?.trim();
+          if (!requestedFrom || !missingInputs) {
+            setActionResult(taskId, false, '补输入未提交', '请至少填写请求对象和缺失输入。');
+            return;
+          }
+          const res = await postJSON(`/api/tasks/${encodeURIComponent(taskId)}/request-business-input`, {
+            actor_id: 'dashboard-ui',
+            actor_role: 'admin',
+            requested_from: requestedFrom,
+            missing_inputs: missingInputs,
+            note,
+          }, 12000);
+          if (!res.ok) throw new Error(res.error || '发起失败');
+          setActionResult(taskId, true, '已发起补输入', '系统已将任务推进到等待输入状态。', safe(res.result_summary || ''));
+          await refreshAll();
+        } catch (e) {
+          setActionResult(taskId, false, '补输入失败', safe(e.message));
+        }
+      });
+      assignOwnerBtn?.addEventListener('click', async () => {
+        try {
+          const assignedTo = document.getElementById('assignOwnerAgent')?.value?.trim();
+          const assignedTeam = document.getElementById('assignOwnerTeam')?.value?.trim();
+          const reason = document.getElementById('assignOwnerReason')?.value?.trim();
+          if (!assignedTo) {
+            setActionResult(taskId, false, '指派未提交', '请先填写负责人 Agent。');
+            return;
+          }
+          const res = await postJSON(`/api/tasks/${encodeURIComponent(taskId)}/assign-owner`, {
+            actor_id: 'dashboard-ui',
+            actor_role: 'admin',
+            assigned_to: assignedTo,
+            assigned_team: assignedTeam,
+            reason,
+          }, 12000);
+          if (!res.ok) throw new Error(res.error || '指派失败');
+          setActionResult(taskId, true, '已指派负责人', '负责人和团队信息已更新。', safe(res.result_summary || ''));
+          await refreshAll();
+        } catch (e) {
+          setActionResult(taskId, false, '指派负责人失败', safe(e.message));
+        }
+      });
+      confirmHandoffBtn?.addEventListener('click', async () => {
+        try {
+          const stageId = document.getElementById('confirmHandoffStageId')?.value?.trim();
+          const handoffNote = document.getElementById('confirmHandoffNote')?.value?.trim();
+          const artifactSummary = document.getElementById('confirmHandoffArtifactSummary')?.value?.trim();
+          const nextOwner = document.getElementById('confirmHandoffNextOwner')?.value?.trim();
+          if (!stageId || !handoffNote || !artifactSummary || !nextOwner) {
+            setActionResult(taskId, false, '交接未提交', '请完整填写阶段、下一接手人、交接说明和产物摘要。');
+            return;
+          }
+          const res = await postJSON(`/api/tasks/${encodeURIComponent(taskId)}/confirm-handoff`, {
+            actor_id: 'dashboard-ui',
+            actor_role: 'admin',
+            stage_id: stageId,
+            handoff_note: handoffNote,
+            artifact_summary: artifactSummary,
+            next_owner: nextOwner,
+          }, 12000);
+          if (!res.ok) throw new Error(res.error || '交接失败');
+          setActionResult(taskId, true, '交接已确认', '交接信息已写入任务并推进阶段状态。', safe(res.result_summary || ''));
+          await refreshAll();
+        } catch (e) {
+          setActionResult(taskId, false, '确认交接失败', safe(e.message));
+        }
+      });
+      returnToReworkBtn?.addEventListener('click', async () => {
+        try {
+          const reworkOwner = document.getElementById('returnToReworkOwner')?.value?.trim();
+          const reason = document.getElementById('returnToReworkReason')?.value?.trim();
+          if (!reworkOwner || !reason) {
+            setActionResult(taskId, false, '返工回退未提交', '请填写返工责任人和返工原因。');
+            return;
+          }
+          const res = await postJSON(`/api/tasks/${encodeURIComponent(taskId)}/return-to-rework-owner`, {
+            actor_id: 'dashboard-ui',
+            actor_role: 'admin',
+            rework_owner: reworkOwner,
+            reason,
+          }, 12000);
+          if (!res.ok) throw new Error(res.error || '返工失败');
+          setActionResult(taskId, true, '已回退返工', '任务已回退给返工责任人。', safe(res.result_summary || ''));
+          await refreshAll();
+        } catch (e) {
+          setActionResult(taskId, false, '返工回退失败', safe(e.message));
+        }
       });
       addArtifactBtn?.addEventListener('click', async () => {
         try {
@@ -1098,6 +1395,7 @@
         if (currentPool === 'running') currentFilter = 'in_progress';
         else if (currentPool === 'completed') currentFilter = 'completed';
         else currentFilter = 'all';
+        currentTeamFocus = '';
         selectedTaskId = null;
         activatePool(currentPool);
         await loadTasks();
@@ -1111,8 +1409,20 @@
     document.getElementById('historyToggle').addEventListener('change', async (e) => {
       showHistory = Boolean(e.target.checked);
       selectedTaskId = null;
+      document.getElementById('detailPanel').classList.remove('open');
+      document.getElementById('detailOverlay').classList.remove('open');
       syncRouteState();
       try { await refreshAll(); } catch (err) { alert(`切换失败: ${err.message}`); }
+    });
+
+    document.getElementById('closeDetailBtn').addEventListener('click', () => {
+      document.getElementById('detailPanel').classList.remove('open');
+      document.getElementById('detailOverlay').classList.remove('open');
+    });
+
+    document.getElementById('detailOverlay').addEventListener('click', () => {
+      document.getElementById('detailPanel').classList.remove('open');
+      document.getElementById('detailOverlay').classList.remove('open');
     });
 
     (async () => {

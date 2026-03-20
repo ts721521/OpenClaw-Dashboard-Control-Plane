@@ -273,12 +273,22 @@
         #f8fbf9;
       background-size: 24px 24px;
       position: relative;
+      cursor: grab;
+    }
+
+    .stage-scroll.panning { cursor: grabbing; }
+
+    .stage-zoom {
+      position: relative;
+      min-width: 860px;
+      min-height: 460px;
     }
 
     .stage-inner {
       position: relative;
       min-height: 460px;
       min-width: 860px;
+      transform-origin: top left;
     }
 
     #edges {
@@ -335,9 +345,71 @@
       box-shadow: 0 12px 24px rgba(16, 36, 24, 0.12);
       transform: translateY(-1px);
     }
+    .node.dragging {
+      opacity: 0.92;
+      cursor: grabbing;
+      box-shadow: 0 16px 32px rgba(16, 36, 24, 0.18);
+    }
     .node.selected {
       border-color: var(--brand);
       box-shadow: 0 0 0 2px rgba(17, 99, 70, 0.16), 0 12px 24px rgba(16, 36, 24, 0.14);
+    }
+    .node.connect-source {
+      border-color: #b27a37;
+      box-shadow: 0 0 0 2px rgba(178, 122, 55, 0.18), 0 12px 24px rgba(120, 74, 22, 0.16);
+      background: #fff8ee;
+    }
+    .node.connect-target {
+      border-color: #2f7bbd;
+      box-shadow: 0 0 0 2px rgba(47, 123, 189, 0.16), 0 12px 24px rgba(24, 62, 102, 0.14);
+      background: #f1f8ff;
+    }
+    .connector-handle {
+      position: absolute;
+      right: -8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      background: linear-gradient(135deg, #b27a37, #cc9d58);
+      box-shadow: 0 2px 8px rgba(120, 74, 22, 0.22);
+      cursor: crosshair;
+      z-index: 3;
+    }
+    .connector-handle:hover {
+      transform: translateY(-50%) scale(1.08);
+    }
+    .wire-preview {
+      fill: none;
+      stroke: #b27a37;
+      stroke-width: 2;
+      stroke-dasharray: 6 4;
+      pointer-events: none;
+      marker-end: url(#arrow-warn);
+    }
+    .edge-path.diff-added {
+      stroke: #1f8f5f;
+      stroke-width: 2.5;
+    }
+    .edge-path.diff-removed {
+      stroke: #c24d44;
+      stroke-width: 2.5;
+      opacity: 0.92;
+    }
+    .edge-path.diff-same {
+      opacity: 0.78;
+    }
+    .node.diff-added {
+      border-color: #1f8f5f;
+      box-shadow: 0 0 0 2px rgba(31, 143, 95, 0.14), 0 12px 24px rgba(16, 36, 24, 0.12);
+      background: #eefaf3;
+    }
+    .node.diff-removed {
+      border-color: #c24d44;
+      box-shadow: 0 0 0 2px rgba(194, 77, 68, 0.12), 0 12px 24px rgba(60, 24, 22, 0.1);
+      background: #fff4f2;
     }
 
     .flow-list {
@@ -509,6 +581,35 @@
       padding-left: 18px;
       font-size: 12px;
       color: var(--muted);
+    }
+
+    .diff-chip {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 8px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      border: 1px solid transparent;
+    }
+
+    .diff-chip.added {
+      color: #145a43;
+      background: #ecf8f1;
+      border-color: #b8dfc6;
+    }
+
+    .diff-chip.removed {
+      color: #9a3b33;
+      background: #fff1ef;
+      border-color: #efc0ba;
+    }
+
+    .diff-chip.same {
+      color: #4f6558;
+      background: #f5f8f6;
+      border-color: #d8dfd8;
     }
 
     .warn-text { color: #9e5e19; font-size: 12px; }
@@ -838,7 +939,6 @@
       </div>
 
       <nav class="menu">
-        <a href="team_dashboard.html">团队管理中心</a>
         <a href="task_dashboard.html">任务管理中心</a>
         <a class="active" href="system_dashboard.html">系统架构管理中心</a>
       </nav>
@@ -853,11 +953,17 @@
     <main class="main">
       <header class="top" id="topBar">
         <nav class="tabs" id="tabs">
-          <button class="tab active" data-view="architecture-map">系统架构关系图</button>
-          <button class="tab" data-view="governance">治理中心</button>
-          <button class="tab" data-view="advanced-config">高级配置</button>
+          <button class="tab active" data-view="architecture">架构关系图</button>
+          <button class="tab" data-view="inter-team-flow">团队间流程</button>
+          <button class="tab" data-view="team-workflow">团队内流程</button>
+          <button class="tab" data-view="flow-detail">流程详情</button>
         </nav>
         <div class="actions">
+          <button class="btn" id="zoomOutBtn">缩小</button>
+          <button class="btn" id="zoomInBtn">放大</button>
+          <button class="btn" id="fitViewBtn">适配视图</button>
+          <button class="btn" id="autoLayoutBtn">自动布局</button>
+          <button class="btn" id="resetLayoutBtn">重置布局</button>
           <button class="btn primary" id="refreshBtn">刷新数据</button>
         </div>
       </header>
@@ -865,7 +971,7 @@
       <section class="grid" id="mainGrid">
         <section class="panel">
           <div class="head">
-            <h3 id="mainTitle">系统架构关系图</h3>
+            <h3 id="mainTitle">架构关系图</h3>
             <div class="meta">更新时间：<span id="updatedAt">-</span></div>
           </div>
           <div id="mainBody" style="display:flex;flex-direction:column;min-height:0;flex:1;"></div>
@@ -873,8 +979,8 @@
 
         <section class="panel" id="contextPanel">
           <div class="head">
-            <h3 id="contextTitle">对象详情</h3>
-            <div class="meta" id="contextMeta">先从架构关系图选择团队或角色</div>
+            <h3 id="contextTitle">当前上下文</h3>
+            <div class="meta" id="contextMeta">选择团队、角色或流程后，这里会显示最小必要信息。</div>
           </div>
           <div class="flow-list" id="flowList"></div>
           <div class="detail-card" id="flowContext"></div>
@@ -883,7 +989,7 @@
     </main>
   </div>
 
-  <script src="static/build/system_dashboard.js"></script>
+  <script type="module" src="static/build/system_dashboard.js"></script>
   <!-- legacy inline script removed; logic moved to frontend/system/index.ts -->
 </body>
 </html>
